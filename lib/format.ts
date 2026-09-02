@@ -1,59 +1,81 @@
-import type { TransactionType } from '@/types/transaction'
-
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
-
-const dayFormatter = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-})
-
-export function formatCurrency(value: number): string {
-  return currencyFormatter.format(value)
+/** 1500000 -> "1.500.000đ" — luôn số nguyên đồng, không khoảng trắng trước đ. */
+export function formatVnd(
+  amount: number,
+  opts?: { sign?: boolean; unit?: boolean },
+) {
+  const sign = opts?.sign ? (amount > 0 ? '+' : amount < 0 ? '−' : '') : ''
+  const body = new Intl.NumberFormat('vi-VN').format(Math.abs(Math.round(amount)))
+  return `${sign}${body}${opts?.unit === false ? '' : 'đ'}`
 }
 
-export function formatSignedAmount(
-  type: TransactionType,
-  amount: number,
-): string {
-  const sign = type === 'income' ? '+' : '-'
-  return `${sign}${currencyFormatter.format(Math.abs(amount))}`
+/** 16180000 -> "16,18tr" cho chỗ hẹp (ô donut, thẻ mobile). */
+export function formatVndShort(amount: number) {
+  const a = Math.abs(amount)
+  if (a >= 1_000_000)
+    return `${(a / 1_000_000).toFixed(a >= 10_000_000 ? 2 : 1).replace('.', ',')}tr`
+  if (a >= 1_000) return `${Math.round(a / 1_000)}k`
+  return String(a)
 }
 
 /**
- * Parses 'YYYY-MM-DD' as a local date. `new Date('2026-01-01')` parses as UTC
- * midnight, which renders as the previous day in negative UTC offsets.
+ * Parse chuỗi người dùng gõ thành số nguyên đồng.
+ *  "300k" -> 300000 · "1.5tr" = "1,5tr" -> 1500000 · "1.500.000" -> 1500000
+ * Không parse được -> null (KHÔNG hiện lỗi đỏ, người dùng đang gõ dở).
  */
-function parseIsoDate(isoDate: string): Date {
-  const [year, month, day] = isoDate.split('-').map(Number)
-  return new Date(year, month - 1, day)
+export function parseAmountVnd(raw: string): number | null {
+  const s = raw.toLowerCase().replace(/\s|đ|vnd/g, '')
+  if (!s) return null
+
+  const m = s.match(/^([\d.,]+)(k|ngàn|nghìn|tr|triệu|m)?$/)
+  if (!m) return null
+
+  const [, digits, unit] = m
+  let n: number
+
+  if (unit) {
+    // có hậu tố: . và , đều là dấu thập phân
+    n = Number(digits.replace(/,/g, '.'))
+    if (Number.isNaN(n)) return null
+    n *= unit === 'k' || unit === 'ngàn' || unit === 'nghìn' ? 1_000 : 1_000_000
+  } else {
+    // không hậu tố: . và , là dấu phân cách nghìn
+    n = Number(digits.replace(/[.,]/g, ''))
+    if (Number.isNaN(n)) return null
+  }
+
+  const rounded = Math.round(n)
+  return rounded > 0 ? rounded : null
 }
 
-export function toIsoDate(date: Date): string {
+/** Nhãn nhóm ngày: "Hôm nay" · "Hôm qua" · "Thứ Bảy · 29/8" */
+export function formatDayLabel(iso: string, now = new Date()) {
+  const d = new Date(iso)
+  const day = (x: Date) => `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (day(d) === day(now)) return 'Hôm nay'
+  if (day(d) === day(yesterday)) return 'Hôm qua'
+  const weekday = d.toLocaleDateString('vi-VN', { weekday: 'long' })
+  return `${weekday[0].toUpperCase()}${weekday.slice(1)} · ${d.getDate()}/${d.getMonth() + 1}`
+}
+
+export function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+/** "2026-09" -> "Tháng 9, 2026" */
+export function formatMonthLabel(monthKey: string) {
+  const [year, month] = monthKey.split('-')
+  return `Tháng ${Number(month)}, ${year}`
+}
+
+/** Ngày local dạng "YYYY-MM-DD" — cho <input type="date">. */
+export function toDateInputValue(date: Date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
-}
-
-export function formatDate(isoDate: string): string {
-  return dayFormatter.format(parseIsoDate(isoDate))
-}
-
-export function formatRelativeDay(isoDate: string): string {
-  const today = new Date()
-  const yesterday = new Date()
-  yesterday.setDate(today.getDate() - 1)
-
-  if (isoDate === toIsoDate(today)) return 'Today'
-  if (isoDate === toIsoDate(yesterday)) return 'Yesterday'
-  return formatDate(isoDate)
-}
-
-export function currentMonthKey(): string {
-  return toIsoDate(new Date()).slice(0, 7)
 }
