@@ -126,26 +126,37 @@ dashboard.
 
 ### Derived state
 
-Derived values are **selector functions in `lib/selectors.ts`, not fields in the
+Derived values are **pure functions in `lib/selectors.ts`, not fields in the
 store**. The store holds raw transactions as the single source of truth.
 
 ```ts
-selectTotalIncome(state): number
-selectTotalExpense(state): number
-selectBalance(state): number
-selectRecentTransactions(n): (state) => Transaction[]
-selectMonthlySummary(month): (state) => { income: number; expense: number }
-selectExpenseByCategory(state): Array<{ category, total, percentage }>
+getTotalIncome(transactions): number
+getTotalExpense(transactions): number
+getBalance(transactions): number
+getRecentTransactions(transactions, limit?): Transaction[]
+getMonthlySummary(transactions, monthKey): { income, expense, net }
+getExpenseByCategory(transactions): CategoryBreakdown[]
 ```
+
+They take `Transaction[]` rather than the store state. Components select the
+`transactions` array from the store — a stable reference that changes only when
+transactions change — and derive inside `useMemo`:
+
+```ts
+const transactions = useExpenseStore((state) => state.transactions)
+const balance = useMemo(() => getBalance(transactions), [transactions])
+```
+
+The alternative, a selector passed to `useExpenseStore` that builds a fresh
+array or object on each call, is not viable under Zustand v5: it reads through
+`useSyncExternalStore`, which sees a new snapshot identity on every render and
+loops. Deriving in `useMemo` avoids that, and functions over a plain array are
+testable without constructing a store.
 
 Rejected alternatives: storing `totalIncome`/`totalExpense` as state fields
 recomputed inside each action (every new action can silently forget to
-recompute), and computing per-component with `useMemo` (logic scatters and two
-cards can disagree).
-
-Selectors taking arguments return a selector, so the returned function must be
-memoized at the call site or created outside the component to avoid a new
-reference each render.
+recompute), and scattering the derivation logic across components rather than
+centralizing it in one tested module.
 
 ### SSR hydration
 
