@@ -1,7 +1,24 @@
-import { cn } from '@/lib/utils'
+'use client'
 
-/** Trạng thái rỗng dùng chung cho thẻ danh mục và thẻ giao dịch gần đây. */
-export function EmptyState({ className }: { className?: string }) {
+import { TransactionSheet } from '@/components/transaction/transaction-sheet'
+import { cn } from '@/lib/utils'
+import { useExpenseStore } from '@/store/useExpenseStore'
+
+/**
+ * Trạng thái rỗng. `withActions` dùng cho màn rỗng toàn trang (2f): không vẽ
+ * thẻ số dư rỗng hay biểu đồ trống, chỉ một lời mời và hai nút.
+ */
+export function EmptyState({
+  className,
+  message = 'Ghi khoản đầu tiên để thấy số liệu ở đây.',
+  withActions = false,
+}: {
+  className?: string
+  message?: string
+  withActions?: boolean
+}) {
+  const reset = useExpenseStore((s) => s.reset)
+
   return (
     <div
       className={cn(
@@ -10,15 +27,31 @@ export function EmptyState({ className }: { className?: string }) {
       )}
     >
       <div
-        className="size-16 rounded-2xl border-2 border-dashed border-foreground/20"
+        className="size-16 rounded-[18px] border-2 border-dashed border-foreground/20"
         aria-hidden
       />
       <p className="text-[22px] leading-tight font-extrabold text-pretty">
         Chưa có giao dịch nào
       </p>
-      <p className="max-w-[26ch] text-[15px] font-medium text-muted text-pretty">
-        Ghi khoản đầu tiên để thấy số liệu ở đây.
+      <p className="max-w-[30ch] text-[15px] font-medium text-muted text-pretty">
+        {message}
       </p>
+
+      {withActions && (
+        <div className="mt-3 flex w-full max-w-[320px] flex-col gap-2.5">
+          <TransactionSheet
+            label="+ Thêm giao dịch"
+            triggerClassName="h-[52px] w-full rounded-2xl text-[16.5px]"
+          />
+          <button
+            type="button"
+            onClick={reset}
+            className="h-12 w-full rounded-2xl border border-glass-border text-[14.5px] font-bold transition-colors duration-[120ms] hover:bg-foreground/5"
+          >
+            Dùng dữ liệu mẫu để xem thử
+          </button>
+        </div>
+      )}
     </div>
   )
 }

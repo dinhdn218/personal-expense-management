@@ -1,12 +1,18 @@
 'use client'
 
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Brand } from '@/components/layout/brand'
-import { MONTHLY_BUDGET_VND, NAV_ITEMS } from '@/components/layout/nav-items'
+import { NAV_ITEMS, isActive } from '@/components/layout/nav-items'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { AmountSkeleton, glass } from '@/components/ui/glass-card'
 import { formatVnd } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { useExpenseStore, useMonthlySummary } from '@/store/useExpenseStore'
+import {
+  useBudgetStatus,
+  useExpenseStore,
+  useMonthlySummary,
+} from '@/store/useExpenseStore'
 
 /** Số ngày còn lại của tháng đang xem, tính từ hôm nay. */
 function daysLeftIn(month: string, now = new Date()) {
@@ -17,12 +23,14 @@ function daysLeftIn(month: string, now = new Date()) {
 }
 
 export function AppSidebar({ className }: { className?: string }) {
+  const pathname = usePathname()
   const hasHydrated = useExpenseStore((s) => s.hasHydrated)
   const activeMonth = useExpenseStore((s) => s.activeMonth)
   const { expense } = useMonthlySummary()
+  const budget = useBudgetStatus()
 
-  const used = Math.min(100, Math.round((expense / MONTHLY_BUDGET_VND) * 100))
-  const remaining = MONTHLY_BUDGET_VND - expense
+  const used = Math.round(budget.share * 100)
+  const remaining = Math.max(0, budget.limit - expense)
 
   return (
     <aside
@@ -34,22 +42,22 @@ export function AppSidebar({ className }: { className?: string }) {
       <Brand />
 
       <nav className="flex flex-col gap-1">
-        {NAV_ITEMS.map((item, index) => {
-          const active = index === 0
+        {NAV_ITEMS.map((item) => {
+          const active = isActive(item.href, pathname)
           return (
-            <button
+            <Link
               key={item.id}
-              type="button"
+              href={item.href}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'flex h-11 items-center rounded-[13px] px-3.5 text-left transition-colors duration-120',
+                'flex h-11 items-center rounded-[13px] px-3.5 text-left transition-colors duration-[120ms]',
                 active
                   ? `${glass} rounded-[13px] text-[14.5px] font-extrabold`
                   : 'text-[14.5px] font-semibold text-foreground/56 hover:bg-foreground/5 hover:text-foreground',
               )}
             >
               {item.label}
-            </button>
+            </Link>
           )
         })}
       </nav>
@@ -66,7 +74,7 @@ export function AppSidebar({ className }: { className?: string }) {
         {hasHydrated ? (
           <p className="mt-2.5 text-[15px] font-extrabold tabular-nums">
             {formatVnd(expense, { unit: false })}
-            <span className="text-muted"> / {formatVnd(MONTHLY_BUDGET_VND)}</span>
+            <span className="text-muted"> / {formatVnd(budget.limit)}</span>
           </p>
         ) : (
           <AmountSkeleton className="mt-2.5 h-[18px] w-40" />
@@ -74,7 +82,10 @@ export function AppSidebar({ className }: { className?: string }) {
 
         <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-foreground/13">
           <div
-            className="h-full rounded-full bg-accent transition-[width] duration-500"
+            className={cn(
+              'h-full rounded-full transition-[width] duration-500',
+              budget.over ? 'bg-negative' : 'bg-accent',
+            )}
             style={{ width: hasHydrated ? `${used}%` : '0%' }}
           />
         </div>

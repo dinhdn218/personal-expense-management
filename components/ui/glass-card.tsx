@@ -40,9 +40,22 @@ export function CardLabel({
   )
 }
 
-/** Khối giả lập lúc chờ hydrate — thay số, không dùng spinner toàn màn. */
-export function AmountSkeleton({ className }: { className?: string }) {
+/**
+ * Khối giả lập lúc chờ dữ liệu — đặt đúng kích thước nội dung thật để bố cục
+ * không nhảy khi số về. Không spinner toàn màn. Truyền `style.animationDelay`
+ * để các khối lệch pha nhau.
+ */
+export function AmountSkeleton({
+  className,
+  style,
+}: {
+  className?: string
+  style?: React.CSSProperties
+}) {
   return (
-    <div className={cn('animate-pulse rounded bg-foreground/10', className)} />
+    <div
+      className={cn('animate-pulse rounded bg-foreground/10', className)}
+      style={style}
+    />
   )
 }

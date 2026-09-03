@@ -2,10 +2,12 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion } from 'framer-motion'
+import { useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { AmountInput } from '@/components/transaction/amount-input'
 import { Numpad } from '@/components/transaction/numpad'
+import { SaveError } from '@/components/transaction/save-error'
 import {
   Select,
   SelectContent,
@@ -19,6 +21,7 @@ import {
   categoryOf,
 } from '@/lib/categories'
 import { parseAmountVnd, toDateInputValue } from '@/lib/format'
+import { canPersist } from '@/lib/storage'
 import { cn } from '@/lib/utils'
 import { useExpenseStore } from '@/store/useExpenseStore'
 import { ACCOUNTS } from '@/types/transaction'
@@ -44,6 +47,17 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>
 
+function emptyValues(type: TxType): FormValues {
+  return {
+    type,
+    amountRaw: '',
+    categoryId: '',
+    accountId: 'cash',
+    occurredAt: toDateInputValue(new Date()),
+    note: '',
+  }
+}
+
 const fieldBox =
   'h-[50px] w-full rounded-[15px] border border-glass-border bg-well px-3.5 text-[14.5px] font-bold outline-none'
 
@@ -57,26 +71,22 @@ export function TransactionForm({
   onCancel?: () => void
 }) {
   const addTransaction = useExpenseStore((s) => s.addTransaction)
+  const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle')
 
   const {
     control,
     register,
     handleSubmit,
     setValue,
+    getValues,
+    reset,
     formState: { isValid },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     // Validate liên tục để bật/tắt nút Lưu, nhưng không bao giờ hiện lỗi đỏ
     // khi người dùng đang gõ dở — chỉ làm mờ nút.
     mode: 'onChange',
-    defaultValues: {
-      type: 'expense',
-      amountRaw: '',
-      categoryId: '',
-      accountId: 'cash',
-      occurredAt: toDateInputValue(new Date()),
-      note: '',
-    },
+    defaultValues: emptyValues('expense'),
   })
 
   const type = useWatch({ control, name: 'type' })
@@ -96,6 +106,13 @@ export function TransactionForm({
     const amountVnd = parseAmountVnd(values.amountRaw)
     if (!amountVnd) return
 
+    setStatus('saving')
+    // Giữ nguyên form nếu không ghi được, không xoá thứ người dùng đã gõ.
+    if (!canPersist()) {
+      setStatus('error')
+      return
+    }
+
     // Giữ giờ hiện tại để nhãn "Hôm nay" và thứ tự trong danh sách đúng.
     const now = new Date()
     const occurredAt = new Date(
@@ -112,10 +129,15 @@ export function TransactionForm({
       note: values.note?.trim() || undefined,
       occurredAt,
     })
+
+    setStatus('idle')
+    reset(emptyValues(values.type))
     onDone()
   }
 
   const isSheet = variant === 'sheet'
+  const saving = status === 'saving'
+  const canSubmit = isValid && !saving
 
   return (
     <form
@@ -281,6 +303,8 @@ export function TransactionForm({
         />
       </div>
 
+      {status === 'error' && <SaveError onRetry={() => submit(getValues())} />}
+
       {isSheet ? (
         <Controller
           control={control}
@@ -292,7 +316,7 @@ export function TransactionForm({
                 setValue('amountRaw', next, { shouldValidate: true })
               }
               onSubmit={handleSubmit(submit)}
-              canSubmit={isValid}
+              canSubmit={canSubmit}
             />
           )}
         />
@@ -308,14 +332,14 @@ export function TransactionForm({
           <motion.button
             type="submit"
             whileTap={{ scale: 0.98 }}
-            disabled={!isValid}
+            disabled={!canSubmit}
             className={cn(
               'h-[52px] flex-1 rounded-[15px] bg-accent text-[16.5px] font-extrabold text-accent-foreground',
               'transition-colors duration-[120ms] hover:brightness-[1.06] active:brightness-90',
-              !isValid && 'opacity-40',
+              !canSubmit && 'opacity-40',
             )}
           >
-            Lưu giao dịch
+            {saving ? 'Đang lưu…' : 'Lưu giao dịch'}
           </motion.button>
         </div>
       )}

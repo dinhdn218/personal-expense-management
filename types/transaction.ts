@@ -1,5 +1,7 @@
 import type { CategoryId } from '@/lib/categories'
 
+export type { CategoryId }
+
 export type TxType = 'income' | 'expense'
 export type AccountId = 'techcombank' | 'cash' | 'momo'
 

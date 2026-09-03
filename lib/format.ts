@@ -72,6 +72,17 @@ export function formatMonthLabel(monthKey: string) {
   return `Tháng ${Number(month)}, ${year}`
 }
 
+/**
+ * Số ngày còn lại của tháng, tính từ hôm nay. Tháng đã qua hoặc chưa tới thì
+ * trả về độ dài cả tháng. Luôn ≥ 1 để không chia cho 0 khi tính nhịp chi.
+ */
+export function daysLeftInMonth(monthKey: string, now = new Date()) {
+  const [year, month] = monthKey.split('-').map(Number)
+  const lastDay = new Date(year, month, 0).getDate()
+  const isCurrent = now.getFullYear() === year && now.getMonth() + 1 === month
+  return Math.max(1, isCurrent ? lastDay - now.getDate() : lastDay)
+}
+
 /** Ngày local dạng "YYYY-MM-DD" — cho <input type="date">. */
 export function toDateInputValue(date: Date) {
   const year = date.getFullYear()

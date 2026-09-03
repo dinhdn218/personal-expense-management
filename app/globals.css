@@ -23,6 +23,7 @@
   --accent-foreground: #1b1206;
   --positive: #3ed6b5;
   --negative: #ff7a9c;
+  --negative-foreground: #1b0a10;
 
   /* lớp kính */
   --glass: rgba(255, 255, 255, 0.055);
@@ -68,6 +69,7 @@
   --accent-foreground: #ffffff;
   --positive: #0b7566;
   --negative: #b32455;
+  --negative-foreground: #ffffff;
 
   --glass: rgba(255, 255, 255, 0.62);
   --glass-border: rgba(27, 23, 20, 0.14);
@@ -93,6 +95,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
+  --color-negative-foreground: var(--negative-foreground);
   --color-glass: var(--glass);
   --color-glass-border: var(--glass-border);
   --color-line: var(--line);

@@ -1,13 +1,17 @@
 'use client'
 
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Brand } from '@/components/layout/brand'
-import { NAV_ITEMS_COMPACT } from '@/components/layout/nav-items'
+import { NAV_ITEMS_COMPACT, isActive } from '@/components/layout/nav-items'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { TransactionSheet } from '@/components/transaction/transaction-sheet'
 import { glass } from '@/components/ui/glass-card'
 import { cn } from '@/lib/utils'
 
 export function AppTopbar({ className }: { className?: string }) {
+  const pathname = usePathname()
+
   return (
     <header
       className={cn(
@@ -18,12 +22,12 @@ export function AppTopbar({ className }: { className?: string }) {
       <Brand size="tablet" />
 
       <nav className="flex items-center gap-1">
-        {NAV_ITEMS_COMPACT.map((item, index) => {
-          const active = index === 0
+        {NAV_ITEMS_COMPACT.map((item) => {
+          const active = isActive(item.href, pathname)
           return (
-            <button
+            <Link
               key={item.id}
-              type="button"
+              href={item.href}
               aria-current={active ? 'page' : undefined}
               className={cn(
                 'flex h-10 items-center rounded-xl px-3.5 text-[13.5px] transition-colors duration-[120ms]',
@@ -33,7 +37,7 @@ export function AppTopbar({ className }: { className?: string }) {
               )}
             >
               {item.label}
-            </button>
+            </Link>
           )
         })}
       </nav>
