@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { EmptyState } from '@/components/dashboard/empty-state'
 import { AmountSkeleton, CardLabel, GlassCard } from '@/components/ui/glass-card'
@@ -28,12 +29,12 @@ export function CategoryBreakdown({ className }: { className?: string }) {
     >
       <div className="flex items-center justify-between gap-3">
         <CardLabel>Chi theo danh mục</CardLabel>
-        <button
-          type="button"
+        <Link
+          href="/bao-cao"
           className="text-[12.5px] font-extrabold text-accent md:hidden"
         >
           Tất cả
-        </button>
+        </Link>
       </div>
 
       {!hasHydrated ? (
@@ -82,12 +83,12 @@ export function CategoryBreakdown({ className }: { className?: string }) {
           </div>
 
           <div className="mt-auto hidden border-t border-line pt-3 md:block">
-            <button
-              type="button"
+            <Link
+              href="/bao-cao"
               className="text-[12.5px] font-extrabold text-accent"
             >
               {data.length > 4 ? `Xem ${data.length} danh mục` : 'Xem báo cáo chi tiết'} →
-            </button>
+            </Link>
           </div>
         </>
       )}

@@ -1,10 +1,8 @@
 'use client'
 
+import { MonthPicker } from '@/components/layout/month-picker'
 import { TransactionSheet } from '@/components/transaction/transaction-sheet'
-import { glass } from '@/components/ui/glass-card'
-import { formatMonthLabel } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { useExpenseStore } from '@/store/useExpenseStore'
 
 /** Đầu trang dùng chung cho các màn 2a–2d. */
 export function PageHeader({
@@ -20,8 +18,6 @@ export function PageHeader({
   showAddButton?: boolean
   children?: React.ReactNode
 }) {
-  const activeMonth = useExpenseStore((s) => s.activeMonth)
-
   return (
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div className="flex min-w-0 flex-col gap-1">
@@ -37,20 +33,7 @@ export function PageHeader({
 
       <div className="flex items-center gap-2.5">
         {children}
-        {showMonthPill && (
-          <button
-            type="button"
-            className={cn(
-              glass,
-              'hidden h-10 items-center gap-2 rounded-[13px] px-[15px] text-[13.5px] font-bold sm:flex xl:h-[42px]',
-            )}
-          >
-            {formatMonthLabel(activeMonth)}
-            <span className="text-[11px] text-muted" aria-hidden>
-              ▾
-            </span>
-          </button>
-        )}
+        {showMonthPill && <MonthPicker className="hidden sm:flex" />}
         {showAddButton && (
           <TransactionSheet
             label="+ Thêm giao dịch"

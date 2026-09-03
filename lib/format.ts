@@ -90,3 +90,15 @@ export function toDateInputValue(date: Date) {
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
+
+/** "2026-09" + (-1) -> "2026-08". Dịch tháng, tự cuộn qua năm. */
+export function shiftMonth(monthKey: string, delta: number) {
+  const [year, month] = monthKey.split('-').map(Number)
+  const d = new Date(year, month - 1 + delta, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+/** "2026-09" -> "T9" — nhãn ngắn cho pill mobile. */
+export function formatMonthShort(monthKey: string) {
+  return `T${Number(monthKey.split('-')[1])}`
+}

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Brand } from '@/components/layout/brand'
-import { NAV_ITEMS_COMPACT, isActive } from '@/components/layout/nav-items'
+import { NAV_ITEMS, isActive } from '@/components/layout/nav-items'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { TransactionSheet } from '@/components/transaction/transaction-sheet'
 import { glass } from '@/components/ui/glass-card'
@@ -22,7 +22,7 @@ export function AppTopbar({ className }: { className?: string }) {
       <Brand size="tablet" />
 
       <nav className="flex items-center gap-1">
-        {NAV_ITEMS_COMPACT.map((item) => {
+        {NAV_ITEMS.map((item) => {
           const active = isActive(item.href, pathname)
           return (
             <Link

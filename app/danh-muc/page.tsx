@@ -108,7 +108,10 @@ function CategoryRow({
   const deletable = count === 0
 
   return (
-    <div className="flex flex-col border-b border-line py-3.5 last:border-b-0">
+    <div
+      data-testid={`cat-row-${id}`}
+      className="flex flex-col border-b border-line py-3.5 last:border-b-0"
+    >
       <div className="flex items-center gap-3.5">
         <span className="flex min-w-0 flex-1 items-center gap-2.5">
           <span

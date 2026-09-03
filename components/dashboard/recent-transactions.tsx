@@ -1,7 +1,9 @@
 'use client'
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
+import { TransactionEdit } from '@/components/transaction/transaction-edit'
 import { EmptyState } from '@/components/dashboard/empty-state'
 import { AmountSkeleton, CardLabel, GlassCard } from '@/components/ui/glass-card'
 import { categoryOf } from '@/lib/categories'
@@ -26,6 +28,7 @@ function groupByDay(rows: Transaction[]) {
 
 export function RecentTransactions({ className }: { className?: string }) {
   const hasHydrated = useExpenseStore((s) => s.hasHydrated)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const isTablet = useMediaQuery('(min-width: 768px)')
   const isDesktop = useMediaQuery('(min-width: 1280px)')
 
@@ -47,9 +50,12 @@ export function RecentTransactions({ className }: { className?: string }) {
           <span className="md:hidden">Gần đây</span>
           <span className="hidden md:inline">Giao dịch gần đây</span>
         </CardLabel>
-        <button type="button" className="text-[12.5px] font-extrabold text-accent">
+        <Link
+          href="/giao-dich"
+          className="text-[12.5px] font-extrabold text-accent"
+        >
           Xem tất cả
-        </button>
+        </Link>
       </div>
 
       {!hasHydrated ? (
@@ -74,6 +80,7 @@ export function RecentTransactions({ className }: { className?: string }) {
                     row={row}
                     highlighted={row.id === highlightId}
                     divided={index > 0}
+                    onEdit={() => setEditingId(row.id)}
                   />
                 ))}
               </AnimatePresence>
@@ -81,6 +88,8 @@ export function RecentTransactions({ className }: { className?: string }) {
           ))}
         </div>
       )}
+
+      <TransactionEdit id={editingId} onClose={() => setEditingId(null)} />
     </GlassCard>
   )
 }
@@ -89,10 +98,12 @@ function Row({
   row,
   highlighted,
   divided,
+  onEdit,
 }: {
   row: Transaction
   highlighted: boolean
   divided: boolean
+  onEdit: () => void
 }) {
   const reduceMotion = useReducedMotion()
   const category = categoryOf(row.categoryId)
@@ -107,7 +118,11 @@ function Row({
       transition={{ duration: 0.22, ease: 'easeOut' }}
       className={cn(divided && 'border-t border-line')}
     >
-      <div className="relative -mx-3 flex items-center gap-3.5 rounded-[14px] px-3 py-2.5 transition-colors duration-[120ms] md:hover:bg-foreground/5">
+      <button
+        type="button"
+        onClick={onEdit}
+        data-testid={`recent-row-${row.id}`}
+        className="relative -mx-3 flex w-[calc(100%+1.5rem)] items-center gap-3.5 rounded-[14px] px-3 py-2.5 text-left transition-colors duration-[120ms] md:hover:bg-foreground/5">
         {highlighted && !reduceMotion && (
           <motion.span
             aria-hidden
@@ -143,7 +158,7 @@ function Row({
         >
           {formatVnd(isIncome ? row.amountVnd : -row.amountVnd, { sign: true })}
         </span>
-      </div>
+      </button>
     </motion.div>
   )
 }

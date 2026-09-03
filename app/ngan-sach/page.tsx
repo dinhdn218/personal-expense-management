@@ -1,10 +1,11 @@
 'use client'
 
+import Link from 'next/link'
 import { useMemo } from 'react'
 import { BudgetRing } from '@/components/budget/budget-ring'
 import { BudgetRow } from '@/components/budget/budget-row'
 import { PageHeader } from '@/components/layout/page-header'
-import { AmountSkeleton, CardLabel, GlassCard } from '@/components/ui/glass-card'
+import { AmountSkeleton, CardLabel, GlassCard, glass } from '@/components/ui/glass-card'
 import { daysLeftInMonth, formatVnd } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useBudgetRows, useBudgetStatus, useExpenseStore } from '@/store/useExpenseStore'
@@ -37,7 +38,18 @@ export default function BudgetPage() {
             ? `Đã dùng ${formatVnd(status.used)} trên ${formatVnd(status.limit)} · còn ${daysLeft} ngày`
             : 'Đang tải…'
         }
-      />
+      >
+        {/* Lối vào màn Danh mục cho mobile — thanh tab dưới chỉ đủ 4 mục. */}
+        <Link
+          href="/danh-muc"
+          className={cn(
+            glass,
+            'flex h-10 items-center rounded-[13px] px-[15px] text-[13.5px] font-bold xl:hidden',
+          )}
+        >
+          Danh mục
+        </Link>
+      </PageHeader>
 
       {/* Mobile: thẻ tổng nằm trên cùng */}
       <GlassCard className="flex-row items-center gap-4 rounded-[20px] p-3.5 px-4 md:hidden">

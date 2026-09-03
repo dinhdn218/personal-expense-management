@@ -13,8 +13,8 @@ export const NAV_ITEMS: NavItem[] = [
 ]
 
 /**
- * Tablet và mobile chỉ đủ chỗ cho 4 mục. Bỏ "Danh mục" vì thiết kế chỉ vẽ
- * màn đó ở khổ desktop (2c).
+ * Thanh tab mobile chỉ đủ chỗ cho 4 mục. Bỏ "Danh mục" — màn đó vào được từ
+ * nút ở đầu màn Ngân sách. Tablet dùng NAV_ITEMS đầy đủ (thanh ngang đủ rộng).
  */
 export const NAV_ITEMS_COMPACT: NavItem[] = NAV_ITEMS.filter(
   (item) => item.id !== 'danh-muc',

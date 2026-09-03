@@ -35,7 +35,7 @@ export function AppSidebar({ className }: { className?: string }) {
   return (
     <aside
       className={cn(
-        'w-[236px] shrink-0 flex-col gap-[26px] border-r border-line px-[18px] py-6',
+        'h-full min-h-0 w-[236px] shrink-0 flex-col gap-[26px] overflow-y-auto border-r border-line px-[18px] py-6',
         className,
       )}
     >
@@ -62,11 +62,11 @@ export function AppSidebar({ className }: { className?: string }) {
         })}
       </nav>
 
-      <div className="flex-1" />
+      <div className="min-h-[26px] flex-1" />
 
       <ThemeToggle size="desktop" />
 
-      <section className={cn(glass, 'rounded-[18px] p-[15px]')}>
+      <section className={cn(glass, 'shrink-0 rounded-[18px] p-[15px]')}>
         <h2 className="font-mono text-[10.5px] font-bold tracking-[.16em] text-muted uppercase">
           Ngân sách tháng
         </h2>

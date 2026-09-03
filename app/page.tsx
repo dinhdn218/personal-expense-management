@@ -4,15 +4,11 @@ import { BalanceCard } from '@/components/dashboard/balance-card'
 import { CashflowCard } from '@/components/dashboard/cashflow-card'
 import { CategoryBreakdown } from '@/components/dashboard/category-breakdown'
 import { RecentTransactions } from '@/components/dashboard/recent-transactions'
+import { MonthPicker } from '@/components/layout/month-picker'
 import { TransactionSheet } from '@/components/transaction/transaction-sheet'
-import { glass } from '@/components/ui/glass-card'
-import { formatMonthLabel } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { useExpenseStore } from '@/store/useExpenseStore'
 
 export default function DashboardPage() {
-  const activeMonth = useExpenseStore((s) => s.activeMonth)
-
   return (
     <main className="no-scrollbar flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pt-3 md:gap-4 md:p-5 xl:gap-[18px] xl:p-6">
       {/* Đầu trang — mobile đã có header riêng ở khung ngoài */}
@@ -27,18 +23,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            className={cn(
-              glass,
-              'flex h-10 items-center gap-2 rounded-[13px] px-[15px] text-[13.5px] font-bold xl:h-[42px]',
-            )}
-          >
-            {formatMonthLabel(activeMonth)}
-            <span className="text-[11px] text-muted" aria-hidden>
-              ▾
-            </span>
-          </button>
+          <MonthPicker />
 
           <TransactionSheet
             label="+ Thêm giao dịch"

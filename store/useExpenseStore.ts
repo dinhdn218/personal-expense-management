@@ -330,20 +330,29 @@ export function useExpenseByCategory(month?: string): CategorySlice[] {
   )
 }
 
+/**
+ * `month` bỏ trống thì lấy mọi tháng. Thẻ "Giao dịch gần đây" trên Tổng quan
+ * luôn truyền tháng đang xem — nếu không, đổi sang tháng 8 sẽ ra cảnh tổng
+ * tháng 8 nhưng danh sách vẫn là giao dịch tháng 9.
+ */
 export function computeRecentTransactions(
   transactions: Transaction[],
   limit: number,
+  month?: string,
 ): Transaction[] {
-  return [...transactions]
+  return transactions
+    .filter((t) => !month || monthKey(t.occurredAt) === month)
     .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
     .slice(0, limit)
 }
 
-export function useRecentTransactions(limit = 6): Transaction[] {
+export function useRecentTransactions(limit = 6, month?: string): Transaction[] {
   const transactions = useExpenseStore((s) => s.transactions)
+  const activeMonth = useExpenseStore((s) => s.activeMonth)
+  const key = month ?? activeMonth
   return useMemo(
-    () => computeRecentTransactions(transactions, limit),
-    [transactions, limit],
+    () => computeRecentTransactions(transactions, limit, key),
+    [transactions, limit, key],
   )
 }
 
@@ -660,5 +669,37 @@ export function useCashflowSeries(months = 6, from?: string): CashflowPoint[] {
   return useMemo(
     () => computeCashflowSeries(transactions, months, key),
     [transactions, months, key],
+  )
+}
+
+/* ---------------- Bộ chọn tháng ---------------- */
+
+/**
+ * Danh sách tháng chọn được, mới nhất trước. Gồm mọi tháng đã có giao dịch
+ * hoặc đã đặt hạn mức, cộng thêm `activeMonth` (tháng đang xem có thể rỗng)
+ * và tháng hiện tại — để luôn quay về được "tháng này" dù chưa ghi gì.
+ */
+export function computeAvailableMonths(
+  transactions: Transaction[],
+  budgets: Budgets,
+  activeMonth: string,
+  now = new Date(),
+): string[] {
+  const months = new Set<string>(transactions.map((t) => monthKey(t.occurredAt)))
+  for (const [month, limits] of Object.entries(budgets)) {
+    if (Object.keys(limits).length) months.add(month)
+  }
+  months.add(activeMonth)
+  months.add(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+  return [...months].sort((a, b) => b.localeCompare(a))
+}
+
+export function useAvailableMonths(): string[] {
+  const transactions = useExpenseStore((s) => s.transactions)
+  const budgets = useExpenseStore((s) => s.budgets)
+  const activeMonth = useExpenseStore((s) => s.activeMonth)
+  return useMemo(
+    () => computeAvailableMonths(transactions, budgets, activeMonth),
+    [transactions, budgets, activeMonth],
   )
 }

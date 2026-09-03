@@ -127,7 +127,10 @@ export default function TransactionsPage() {
       </div>
 
       {/* Bảng (desktop/tablet) */}
-      <GlassCard className="hidden min-h-0 flex-1 px-[22px] pt-2 pb-5 md:flex">
+      <GlassCard
+        data-testid="tx-table"
+        className="hidden min-h-0 flex-1 px-[22px] pt-2 pb-5 md:flex"
+      >
         <div className="flex shrink-0 items-center gap-3.5 border-b border-line py-2.5">
           <span className="hidden w-24 font-mono text-[10.5px] font-bold tracking-[.16em] text-muted uppercase xl:block">
             Danh mục
@@ -162,6 +165,7 @@ export default function TransactionsPage() {
                   return (
                     <div
                       key={row.id}
+                      data-testid={`tx-row-${row.id}`}
                       className="-mx-3 flex items-center gap-3.5 rounded-[14px] px-3 py-2.5 transition-colors duration-[120ms] hover:bg-foreground/5"
                     >
                       <span className="hidden w-24 items-center gap-2 xl:flex">
@@ -211,7 +215,7 @@ export default function TransactionsPage() {
       </GlassCard>
 
       {/* Mobile: mỗi nhóm ngày là một thẻ kính, nhãn ngày nằm ngoài thẻ */}
-      <div className="flex flex-col gap-3 pb-1 md:hidden">
+      <div data-testid="tx-list-mobile" className="flex flex-col gap-3 pb-1 md:hidden">
         {!hasHydrated ? (
           <GlassCard className="rounded-[18px] px-3.5">
             <LoadingRows />
@@ -234,6 +238,7 @@ export default function TransactionsPage() {
                     <button
                       key={row.id}
                       type="button"
+                      data-testid={`tx-row-m-${row.id}`}
                       onClick={() => setEditingId(row.id)}
                       className={cn(
                         'flex items-center gap-3 py-2.5 text-left',

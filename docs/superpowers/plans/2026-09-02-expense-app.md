@@ -1,3 +1,9 @@
+> [!WARNING]
+> **Tài liệu đã lỗi thời — giữ lại chỉ để tra lịch sử.**
+> Bản này mô tả thiết kế đầu tiên (tiếng Anh, USD, bảng màu khác) và **không**
+> khớp với app hiện tại: app đã được dựng lại theo bản handoff "Ví Riêng"
+> (tiếng Việt, VND, giao diện kính tối). Xem `README.md` ở gốc repo.
+
 # Personal Expense Management Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  computeAvailableMonths,
   computeBalanceByAccount,
   computeCashflowSeries,
   computeExpenseByCategory,
@@ -198,5 +199,81 @@ describe('computeCashflowSeries', () => {
     )
     expect(series.at(-1)?.income).toBe(22_000_000)
     expect(series.at(-2)?.expense).toBe(5_500_000)
+  })
+})
+
+describe('computeRecentTransactions — lọc theo tháng', () => {
+  const rows = [
+    tx({ id: 't9a', occurredAt: '2026-09-02T09:00:00.000Z' }),
+    tx({ id: 't8a', occurredAt: '2026-08-20T09:00:00.000Z' }),
+    tx({ id: 't9b', occurredAt: '2026-09-01T09:00:00.000Z' }),
+  ]
+
+  it('không truyền tháng thì lấy mọi tháng', () => {
+    expect(computeRecentTransactions(rows, 10).map((t) => t.id)).toEqual([
+      't9a',
+      't9b',
+      't8a',
+    ])
+  })
+
+  it('truyền tháng thì chỉ lấy giao dịch trong tháng đó', () => {
+    expect(computeRecentTransactions(rows, 10, '2026-09').map((t) => t.id)).toEqual([
+      't9a',
+      't9b',
+    ])
+  })
+
+  it('tháng không có giao dịch nào trả về mảng rỗng', () => {
+    expect(computeRecentTransactions(rows, 10, '2026-07')).toEqual([])
+  })
+
+  it('không sửa mảng gốc', () => {
+    const order = rows.map((t) => t.id)
+    computeRecentTransactions(rows, 2, '2026-09')
+    expect(rows.map((t) => t.id)).toEqual(order)
+  })
+})
+
+describe('computeAvailableMonths', () => {
+  const now = new Date(2026, 8, 3) // 03/09/2026
+
+  it('gom tháng từ giao dịch, mới nhất trước', () => {
+    const rows = [
+      tx({ id: 'a', occurredAt: '2026-07-10T09:00:00.000Z' }),
+      tx({ id: 'b', occurredAt: '2026-09-01T09:00:00.000Z' }),
+    ]
+    expect(computeAvailableMonths(rows, {}, '2026-09', now)).toEqual([
+      '2026-09',
+      '2026-07',
+    ])
+  })
+
+  it('gộp cả tháng chỉ có hạn mức mà chưa có giao dịch', () => {
+    const budgets = { '2026-10': { 'an-uong': 1_000_000 } }
+    expect(computeAvailableMonths([], budgets, '2026-09', now)).toEqual([
+      '2026-10',
+      '2026-09',
+    ])
+  })
+
+  it('bỏ qua tháng có mục hạn mức rỗng', () => {
+    expect(computeAvailableMonths([], { '2026-10': {} }, '2026-09', now)).toEqual([
+      '2026-09',
+    ])
+  })
+
+  it('luôn có tháng đang xem dù tháng đó chưa có dữ liệu', () => {
+    expect(computeAvailableMonths([], {}, '2026-03', now)).toContain('2026-03')
+  })
+
+  it('luôn có tháng hiện tại để còn quay về được', () => {
+    expect(computeAvailableMonths([], {}, '2026-03', now)).toContain('2026-09')
+  })
+
+  it('không lặp tháng khi trùng nguồn', () => {
+    const rows = [tx({ id: 'a', occurredAt: '2026-09-01T09:00:00.000Z' })]
+    const budgets = { '2026-09': { 'an-uong': 1_000_000 } }
+    expect(computeAvailableMonths(rows, budgets, '2026-09', now)).toEqual(['2026-09'])
   })
 })

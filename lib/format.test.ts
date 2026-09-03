@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatDayLabel,
+  formatMonthShort,
   formatVnd,
   formatVndShort,
   parseAmountVnd,
+  shiftMonth,
 } from '@/lib/format'
 
 describe('parseAmountVnd — hậu tố nghìn', () => {
@@ -121,5 +123,34 @@ describe('formatDayLabel', () => {
     expect(formatDayLabel(new Date(2026, 7, 29, 9, 0).toISOString(), now)).toBe(
       'Thứ Bảy · 29/8',
     )
+  })
+})
+
+describe('shiftMonth', () => {
+  it('lùi một tháng trong cùng năm', () => {
+    expect(shiftMonth('2026-09', -1)).toBe('2026-08')
+  })
+
+  it('tiến một tháng trong cùng năm', () => {
+    expect(shiftMonth('2026-09', 1)).toBe('2026-10')
+  })
+
+  it('cuộn qua đầu năm khi lùi từ tháng 1', () => {
+    expect(shiftMonth('2026-01', -1)).toBe('2025-12')
+  })
+
+  it('cuộn qua cuối năm khi tiến từ tháng 12', () => {
+    expect(shiftMonth('2026-12', 1)).toBe('2027-01')
+  })
+
+  it('dịch nhiều tháng một lúc', () => {
+    expect(shiftMonth('2026-09', -10)).toBe('2025-11')
+  })
+})
+
+describe('formatMonthShort', () => {
+  it('bỏ số 0 ở đầu và bỏ năm', () => {
+    expect(formatMonthShort('2026-09')).toBe('T9')
+    expect(formatMonthShort('2026-12')).toBe('T12')
   })
 })
