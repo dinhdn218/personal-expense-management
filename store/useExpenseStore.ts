@@ -192,7 +192,10 @@ export const useExpenseStore = create<ExpenseState>()(
     }),
     {
       name: 'vi-rieng/expenses',
-      version: 1,
+      // v2: seed cũ đặt khoản chi vào tháng 8 trong khi activeMonth là tháng 9,
+      // và monthKey khi đó gom tháng theo giờ UTC. Trình duyệt đã lưu bản cũ
+      // sẽ nạp lại dữ liệu mẫu đúng thay vì giữ số sai.
+      version: 2,
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
         transactions: s.transactions,
@@ -204,6 +207,13 @@ export const useExpenseStore = create<ExpenseState>()(
       // persist đọc localStorage ngay khi module nạp, nên lần render client
       // đầu tiên đã khác server render -> React báo hydration mismatch.
       skipHydration: true,
+      // Bản lưu cũ hơn thì bỏ, dùng lại dữ liệu mẫu đã sửa.
+      migrate: () => ({
+        transactions: SEED,
+        categories: DEFAULT_CATEGORIES,
+        budgets: SEED_BUDGETS,
+        activeMonth: '2026-09',
+      }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true)
       },

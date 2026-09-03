@@ -62,7 +62,7 @@ export function CashflowCard({ className }: { className?: string }) {
           )}
         </div>
 
-        <div className="mt-4 flex flex-col gap-3.5">
+        <div className="mt-3 flex shrink-0 flex-col gap-2.5">
           <Row label="Thu" amount={income} tone="positive" ready={hasHydrated} fill={100} />
           <Row
             label="Chi"
@@ -73,13 +73,16 @@ export function CashflowCard({ className }: { className?: string }) {
           />
         </div>
 
-        <div className="flex-1" />
-
-        {/* Mini bar 6 tháng — chỉ desktop; tablet thay bằng dòng còn lại */}
-        <div className="mt-4 hidden xl:block">
+        {/*
+          Mini bar 6 tháng — chỉ desktop; tablet thay bằng dòng "Còn lại".
+          Hàng bento ghim 208px nên vùng này phải co theo chỗ còn thừa
+          (min-h-0 + flex-1) chứ không cao cố định, nếu không nội dung tràn
+          khỏi viền thẻ và đè lên thẻ bên dưới.
+        */}
+        <div className="mt-3 hidden min-h-0 flex-1 flex-col xl:flex">
           {hasHydrated ? (
             <>
-              <div className="h-[52px]">
+              <div className="min-h-0 flex-1">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={series}
@@ -107,7 +110,7 @@ export function CashflowCard({ className }: { className?: string }) {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="mt-1.5 flex justify-between font-mono text-[10.5px] font-bold">
+              <div className="mt-1 flex shrink-0 justify-between font-mono text-[10.5px] font-bold">
                 {series.map((point, index) => (
                   <span
                     key={point.month}
@@ -122,12 +125,12 @@ export function CashflowCard({ className }: { className?: string }) {
               </div>
             </>
           ) : (
-            <AmountSkeleton className="h-[52px] w-full" />
+            <AmountSkeleton className="min-h-0 w-full flex-1" />
           )}
         </div>
 
         {/* Tablet: footer "Còn lại" thay cho mini bar */}
-        <div className="mt-4 border-t border-line pt-3 xl:hidden">
+        <div className="mt-auto shrink-0 border-t border-line pt-3 xl:hidden">
           <p className="text-[11.5px] font-semibold text-muted">Còn lại</p>
           {hasHydrated ? (
             <p className="text-[18px] font-extrabold tabular-nums">{formatVnd(net)}</p>
@@ -155,7 +158,9 @@ function Row({
 }) {
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-3">
+      {/* leading-none: hàng bento chỉ cao 208px, chiều cao dòng mặc định của
+          cỡ chữ 17px ăn mất chỗ của biểu đồ bên dưới. */}
+      <div className="flex items-baseline justify-between gap-3 leading-none">
         <span className="text-[13px] font-bold">{label}</span>
         {ready ? (
           <span
@@ -170,7 +175,7 @@ function Row({
           <AmountSkeleton className="h-[17px] w-28" />
         )}
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-foreground/10">
+      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-foreground/10">
         <div
           className={cn(
             'h-full rounded-full transition-[width] duration-500',
