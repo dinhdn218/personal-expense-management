@@ -40,10 +40,10 @@ export function MonthPicker({
     >
       <SelectTrigger
         aria-label="Chọn tháng"
+        size="none"
         className={cn(
           glass,
           'shrink-0 justify-center gap-1.5 font-bold text-foreground',
-          // Ghi đè cỡ mặc định của SelectTrigger (h-8) cho khớp pill thiết kế.
           isMobile
             ? 'h-[44px] rounded-[13px] px-[13px] text-[13.5px]'
             : 'h-10 rounded-[13px] px-[15px] text-[13.5px] xl:h-[42px]',

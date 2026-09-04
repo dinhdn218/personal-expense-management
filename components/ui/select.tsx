@@ -28,13 +28,21 @@ function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
   )
 }
 
+/**
+ * `size="none"` bỏ hẳn phần đặt chiều cao để nơi gọi tự quyết.
+ *
+ * Cần thiết vì `data-[size=default]:h-8` là selector có thuộc tính, độ ưu tiên
+ * CSS cao hơn class `h-[50px]` trơn — tailwind-merge không gộp được hai thứ
+ * khác dạng này, nên truyền h-[50px] vào className vẫn bị h-8 đè, ô select lùn
+ * hơn ô input bên cạnh 17px.
+ */
 function SelectTrigger({
   className,
   size = "default",
   children,
   ...props
 }: SelectPrimitive.Trigger.Props & {
-  size?: "sm" | "default"
+  size?: "sm" | "default" | "none"
 }) {
   return (
     <SelectPrimitive.Trigger

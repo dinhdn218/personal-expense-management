@@ -57,8 +57,9 @@ function emptyValues(type: TxType): FormValues {
   }
 }
 
+/** Ô nhập dùng chung — cùng chiều cao với transaction-edit và hàng nút (52px). */
 const fieldBox =
-  'h-[50px] w-full rounded-[15px] border border-glass-border bg-well px-3.5 text-[14.5px] font-bold outline-none'
+  'h-[52px] w-full rounded-[15px] border border-glass-border bg-well px-3.5 text-[14.5px] font-bold outline-none'
 
 export function TransactionForm({
   variant,
@@ -269,7 +270,7 @@ export function TransactionForm({
               >
                 <SelectTrigger
                   className={cn(fieldBox, 'justify-between')}
-                  size="default"
+                  size="none"
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -297,7 +298,6 @@ export function TransactionForm({
           className={cn(
             fieldBox,
             'font-medium placeholder:font-medium placeholder:text-muted',
-            isSheet && 'h-[52px]',
           )}
           {...register('note')}
         />

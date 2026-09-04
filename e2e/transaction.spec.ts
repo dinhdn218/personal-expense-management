@@ -79,3 +79,23 @@ test('lọc theo loại thu nhập chỉ còn các khoản thu', async ({ page }
   await expect(table(page).getByText('Lương tháng 9')).toBeVisible()
   await expect(table(page).getByText('Tiền nhà tháng 9')).toBeHidden()
 })
+
+test('các ô nhập trên một hàng cao bằng nhau', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: '+ Thêm giao dịch' }).first().click()
+
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+
+  // Ngày và Nguồn tiền nằm cùng một hàng. Select là primitive shadcn có sẵn
+  // `data-[size=default]:h-8` — selector thuộc tính nên ưu tiên CSS cao hơn
+  // class h-[52px] trơn, tailwind-merge không gộp được. Thiếu size="none" thì
+  // ô select lùn hơn ô ngày bên cạnh khoảng 17px.
+  const date = await dialog.locator('input[type="date"]').first().boundingBox()
+  const select = await dialog
+    .locator('[data-slot="select-trigger"]')
+    .first()
+    .boundingBox()
+
+  expect(Math.abs(date!.height - select!.height)).toBeLessThan(2)
+})

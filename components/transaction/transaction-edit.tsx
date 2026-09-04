@@ -245,7 +245,10 @@ function EditBody({
             value={categoryId}
             onValueChange={(v) => setCategoryId(String(v ?? ''))}
           >
-            <SelectTrigger className="h-auto w-full border-0 bg-transparent p-0 text-[14.5px] font-bold">
+            <SelectTrigger
+              size="none"
+              className="w-full border-0 bg-transparent p-0 text-[14.5px] font-bold"
+            >
               <span className="flex min-w-0 items-center gap-2">
                 <span
                   className="size-2.5 shrink-0 rounded-[3px]"
@@ -274,7 +277,10 @@ function EditBody({
             value={accountId}
             onValueChange={(v) => setAccountId((v ?? 'cash') as AccountId)}
           >
-            <SelectTrigger className="h-auto w-full border-0 bg-transparent p-0 text-[14.5px] font-bold">
+            <SelectTrigger
+              size="none"
+              className="w-full border-0 bg-transparent p-0 text-[14.5px] font-bold"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
