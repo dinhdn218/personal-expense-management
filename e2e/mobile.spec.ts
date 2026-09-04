@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { resetStore } from './helpers'
+import { SEED_IDS } from './seed-data'
 
 /**
  * Chạy ở khổ iPhone (project "mobile" trong playwright.config.ts).
@@ -43,7 +44,7 @@ test('pill chọn tháng ở header mobile đổi được tháng', async ({ pag
 test('bấm một dòng ở danh sách giao dịch mở được form sửa', async ({ page }) => {
   await page.goto('/giao-dich')
 
-  await page.getByTestId('tx-row-m-tx_3').click()
+  await page.getByTestId(`tx-row-m-${SEED_IDS.cafeHighlands}`).click()
 
   await expect(page.getByLabel('Tên giao dịch')).toBeVisible()
 })

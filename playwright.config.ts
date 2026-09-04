@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { authFile } from './e2e/auth-file'
 
 const PORT = Number(process.env.E2E_PORT ?? 3000)
 const baseURL = `http://localhost:${PORT}`
@@ -24,22 +25,35 @@ export default defineConfig({
 
   projects: [
     {
+      // Đăng nhập tài khoản test một lần, lưu cookie ra file cho các project
+      // khác dùng lại.
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+    },
+    {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
-      testIgnore: /mobile\.spec\.ts/,
+      dependencies: ['setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 900 },
+        storageState: authFile(),
+      },
+      testIgnore: /mobile\.spec\.ts|auth\.setup\.ts/,
     },
     {
       // Khổ mobile — kiểm tab bar, header mobile và lối vào /danh-muc.
       // Chạy trên Chromium (Pixel 7) chứ không phải iPhone: preset iPhone dùng
       // WebKit, thêm một browser nữa chỉ để đổi kích thước là không đáng.
       name: 'mobile',
-      use: { ...devices['Pixel 7'] },
+      dependencies: ['setup'],
+      use: { ...devices['Pixel 7'], storageState: authFile() },
       testMatch: /mobile\.spec\.ts/,
     },
   ],
 
   webServer: {
     command: `npx next dev --port ${PORT}`,
+    env: { E2E_TEST_LOGIN: '1' },
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

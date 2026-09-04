@@ -21,7 +21,6 @@ import {
   categoryOf,
 } from '@/lib/categories'
 import { parseAmountVnd, toDateInputValue } from '@/lib/format'
-import { canPersist } from '@/lib/storage'
 import { cn } from '@/lib/utils'
 import { useExpenseStore } from '@/store/useExpenseStore'
 import { ACCOUNTS } from '@/types/transaction'
@@ -102,16 +101,11 @@ export function TransactionForm({
     setValue('categoryId', '', { shouldValidate: true })
   }
 
-  function submit(values: FormValues) {
+  async function submit(values: FormValues) {
     const amountVnd = parseAmountVnd(values.amountRaw)
     if (!amountVnd) return
 
     setStatus('saving')
-    // Giữ nguyên form nếu không ghi được, không xoá thứ người dùng đã gõ.
-    if (!canPersist()) {
-      setStatus('error')
-      return
-    }
 
     // Giữ giờ hiện tại để nhãn "Hôm nay" và thứ tự trong danh sách đúng.
     const now = new Date()
@@ -121,14 +115,20 @@ export function TransactionForm({
       ).padStart(2, '0')}:00`,
     ).toISOString()
 
-    addTransaction({
-      type: values.type,
-      amountVnd,
-      categoryId: values.categoryId as (typeof categoryIds)[number],
-      accountId: values.accountId as AccountId,
-      note: values.note?.trim() || undefined,
-      occurredAt,
-    })
+    try {
+      await addTransaction({
+        type: values.type,
+        amountVnd,
+        categoryId: values.categoryId as (typeof categoryIds)[number],
+        accountId: values.accountId as AccountId,
+        note: values.note?.trim() || undefined,
+        occurredAt,
+      })
+    } catch {
+      // Giữ nguyên form khi lưu hỏng, không xoá thứ người dùng đã gõ.
+      setStatus('error')
+      return
+    }
 
     setStatus('idle')
     reset(emptyValues(values.type))

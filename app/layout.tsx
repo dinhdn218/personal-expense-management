@@ -1,10 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import { Be_Vietnam_Pro, JetBrains_Mono } from 'next/font/google'
-import { AppSidebar } from '@/components/layout/app-sidebar'
-import { AppTopbar } from '@/components/layout/app-topbar'
-import { MobileHeader } from '@/components/layout/mobile-header'
-import { MobileTabbar } from '@/components/layout/mobile-tabbar'
-import { StoreHydration } from '@/components/store-hydration'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
 import './globals.css'
 
@@ -32,6 +27,11 @@ export const viewport: Viewport = {
   ],
 }
 
+/**
+ * Layout gốc chỉ giữ khung trang, font và nền — không có sidebar hay tabbar.
+ * Phần vỏ ứng dụng nằm ở app/(app)/layout.tsx để màn đăng nhập (nhóm (auth))
+ * không hiện thanh điều hướng và vòng ngân sách của người chưa đăng nhập.
+ */
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html
@@ -57,16 +57,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
             ].join(','),
           }}
         />
-
-        <StoreHydration />
-
-        <div className="flex h-dvh flex-col xl:flex-row">
-          <AppSidebar className="hidden xl:flex" />
-          <AppTopbar className="hidden md:flex xl:hidden" />
-          <MobileHeader className="md:hidden" />
-          {children}
-          <MobileTabbar className="md:hidden" />
-        </div>
+        {children}
       </body>
     </html>
   )

@@ -1,14 +1,30 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { BalanceCard } from '@/components/dashboard/balance-card'
 import { CashflowCard } from '@/components/dashboard/cashflow-card'
 import { CategoryBreakdown } from '@/components/dashboard/category-breakdown'
 import { RecentTransactions } from '@/components/dashboard/recent-transactions'
 import { MonthPicker } from '@/components/layout/month-picker'
 import { TransactionSheet } from '@/components/transaction/transaction-sheet'
+import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
+  const [email, setEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void createClient()
+      .auth.getUser()
+      .then(({ data }) => {
+        if (!cancelled) setEmail(data.user?.email ?? null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <main className="no-scrollbar flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pt-3 md:gap-4 md:p-5 xl:gap-[18px] xl:p-6">
       {/* Đầu trang — mobile đã có header riêng ở khung ngoài */}
@@ -18,7 +34,7 @@ export default function DashboardPage() {
             Tổng quan
           </h1>
           <p className="text-[12.5px] font-medium text-muted xl:text-[13px]">
-            Chào Minh · dữ liệu lưu trên máy này
+            {email ? `${email} · đã đồng bộ` : 'Đã đồng bộ'}
           </p>
         </div>
 

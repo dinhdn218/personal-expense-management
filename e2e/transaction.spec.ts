@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { resetStore } from './helpers'
+import { SEED_IDS } from './seed-data'
 
 /**
  * Bảng desktop và danh sách mobile cùng nằm trong DOM (chỉ ẩn bằng CSS), nên
@@ -15,7 +16,7 @@ test.beforeEach(async ({ page }) => {
 
 test('sửa ghi chú của một giao dịch', async ({ page }) => {
   await table(page)
-    .getByTestId('tx-row-tx_3')
+    .getByTestId(`tx-row-${SEED_IDS.cafeHighlands}`)
     .getByRole('button', { name: 'Sửa' })
     .click()
 
@@ -30,7 +31,7 @@ test('sửa ghi chú của một giao dịch', async ({ page }) => {
 
 test('sửa giao dịch còn giữ sau khi tải lại trang', async ({ page }) => {
   await table(page)
-    .getByTestId('tx-row-tx_3')
+    .getByTestId(`tx-row-${SEED_IDS.cafeHighlands}`)
     .getByRole('button', { name: 'Sửa' })
     .click()
 
@@ -38,30 +39,30 @@ test('sửa giao dịch còn giữ sau khi tải lại trang', async ({ page }) 
   await page.getByRole('button', { name: 'Lưu' }).click()
   await expect(table(page).getByText('Cafe đã đổi tên')).toBeVisible()
 
-  // Dữ liệu chỉ nằm ở localStorage — reload là phép thử thật cho persist.
+  // Dữ liệu nằm trên server — reload là phép thử thật cho vòng lưu về Postgres.
   await page.reload()
   await expect(table(page).getByText('Cafe đã đổi tên')).toBeVisible()
 })
 
 test('xoá giao dịch cần xác nhận hai bước', async ({ page }) => {
   await table(page)
-    .getByTestId('tx-row-tx_6')
+    .getByTestId(`tx-row-${SEED_IDS.netflix}`)
     .getByRole('button', { name: 'Sửa' })
     .click()
 
   // Bước 1 chỉ mở phần xác nhận, chưa xoá gì.
   await page.getByRole('button', { name: 'Xoá giao dịch' }).click()
   await expect(page.getByText(/Xoá “Netflix”\?/)).toBeVisible()
-  await expect(table(page).getByTestId('tx-row-tx_6')).toBeVisible()
+  await expect(table(page).getByTestId(`tx-row-${SEED_IDS.netflix}`)).toBeVisible()
 
   // Bước 2 mới thực sự xoá.
   await page.getByRole('button', { name: 'Xoá', exact: true }).click()
-  await expect(table(page).getByTestId('tx-row-tx_6')).toBeHidden()
+  await expect(table(page).getByTestId(`tx-row-${SEED_IDS.netflix}`)).toBeHidden()
 })
 
 test('huỷ xác nhận thì giao dịch vẫn còn', async ({ page }) => {
   await table(page)
-    .getByTestId('tx-row-tx_4')
+    .getByTestId(`tx-row-${SEED_IDS.grabVeNha}`)
     .getByRole('button', { name: 'Sửa' })
     .click()
 
@@ -69,7 +70,7 @@ test('huỷ xác nhận thì giao dịch vẫn còn', async ({ page }) => {
   await page.getByRole('button', { name: 'Huỷ', exact: true }).first().click()
   await page.keyboard.press('Escape')
 
-  await expect(table(page).getByTestId('tx-row-tx_4')).toBeVisible()
+  await expect(table(page).getByTestId(`tx-row-${SEED_IDS.grabVeNha}`)).toBeVisible()
 })
 
 test('lọc theo loại thu nhập chỉ còn các khoản thu', async ({ page }) => {

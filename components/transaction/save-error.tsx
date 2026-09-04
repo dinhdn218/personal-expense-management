@@ -21,7 +21,7 @@ export function SaveError({
     >
       <p className="text-[14.5px] font-extrabold">Chưa lưu được</p>
       <p className="mt-1 text-[13px] font-medium text-muted text-pretty">
-        Trình duyệt đang chặn bộ nhớ cục bộ hoặc đã đầy. Không có gì bị mất.
+        Không kết nối được máy chủ. Không có gì bị mất.
       </p>
       <button
         type="button"

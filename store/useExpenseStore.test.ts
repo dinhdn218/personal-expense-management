@@ -1,4 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+// Store gọi thẳng lớp truy vấn Supabase; test chỉ quan tâm mutation có cập
+// nhật cache đúng không, nên thay lớp đó bằng bản giả trong bộ nhớ.
+vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({}) }))
+vi.mock('@/lib/supabase/queries', async () => {
+  const { queryMocks } = await import('./test-supabase')
+  return { ...queryMocks, FK_VIOLATION: '23503' }
+})
+
 import {
   computeAvailableMonths,
   computeBalanceByAccount,
@@ -26,11 +35,11 @@ const tx = (over: Partial<Transaction> & Pick<Transaction, 'id'>): Transaction =
 
 describe('addTransaction', () => {
   beforeEach(() => {
-    useExpenseStore.setState({ transactions: [] })
+    useExpenseStore.setState({ transactions: [], userId: 'u1' })
   })
 
-  it('chèn giao dịch mới lên đầu và trả về id', () => {
-    const id = useExpenseStore.getState().addTransaction({
+  it('chèn giao dịch mới lên đầu và trả về id', async () => {
+    const id = await useExpenseStore.getState().addTransaction({
       type: 'expense',
       amountVnd: 412_000,
       categoryId: 'an-uong',
@@ -46,8 +55,8 @@ describe('addTransaction', () => {
     expect(Number.isNaN(Date.parse(transactions[0].createdAt))).toBe(false)
   })
 
-  it('luôn giữ số dương, dấu suy ra từ type', () => {
-    useExpenseStore.getState().addTransaction({
+  it('luôn giữ số dương, dấu suy ra từ type', async () => {
+    await useExpenseStore.getState().addTransaction({
       type: 'expense',
       amountVnd: 65_000,
       categoryId: 'cafe',
@@ -63,21 +72,21 @@ describe('updateTransaction / removeTransaction', () => {
     useExpenseStore.setState({ transactions: [tx({ id: 'a' }), tx({ id: 'b' })] })
   })
 
-  it('chỉ sửa đúng giao dịch khớp id', () => {
-    useExpenseStore.getState().updateTransaction('a', { amountVnd: 999 })
+  it('chỉ sửa đúng giao dịch khớp id', async () => {
+    await useExpenseStore.getState().updateTransaction('a', { amountVnd: 999 })
     const rows = useExpenseStore.getState().transactions
     expect(rows.find((t) => t.id === 'a')?.amountVnd).toBe(999)
     expect(rows.find((t) => t.id === 'b')?.amountVnd).toBe(100_000)
   })
 
-  it('không đổi gì khi id lạ', () => {
+  it('không đổi gì khi id lạ', async () => {
     const before = useExpenseStore.getState().transactions
-    useExpenseStore.getState().updateTransaction('zzz', { amountVnd: 1 })
+    await useExpenseStore.getState().updateTransaction('zzz', { amountVnd: 1 })
     expect(useExpenseStore.getState().transactions).toEqual(before)
   })
 
-  it('xoá đúng giao dịch', () => {
-    useExpenseStore.getState().removeTransaction('a')
+  it('xoá đúng giao dịch', async () => {
+    await useExpenseStore.getState().removeTransaction('a')
     expect(useExpenseStore.getState().transactions.map((t) => t.id)).toEqual(['b'])
   })
 })

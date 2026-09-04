@@ -3,8 +3,22 @@
 import { useMemo } from 'react'
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
-import { DEFAULT_CATEGORIES, categoryOf } from '@/lib/categories'
+import { categoryOf } from '@/lib/categories'
 import type { Category, CategoryId } from '@/lib/categories'
+import { SEED_ACTIVE_MONTH } from '@/lib/seed-data'
+import type { Budgets } from '@/lib/seed-data'
+import { createClient } from '@/lib/supabase/client'
+import {
+  FK_VIOLATION,
+  deleteBudget,
+  deleteCategory,
+  deleteTransaction,
+  fetchSnapshot,
+  insertTransaction,
+  updateCategoryRow,
+  updateTransactionRow,
+  upsertBudget,
+} from '@/lib/supabase/queries'
 import type {
   AccountId,
   NewTransaction,
@@ -15,141 +29,185 @@ import type {
 export type { AccountId, NewTransaction, Transaction, TxType }
 
 /** Hạn mức chi theo tháng: budgets["2026-09"]["an-uong"] = 5_000_000 */
-export type Budgets = Record<string, Record<CategoryId, number>>
+export type { Budgets }
+
+/**
+ * Kết quả xoá danh mục. Trả về union thay vì ném lỗi vì "danh mục còn giao
+ * dịch" là kết quả nghiệp vụ bình thường, không phải sự cố.
+ */
+export type RemoveCategoryResult =
+  | { ok: true }
+  | { ok: false; reason: 'in-use' | 'network' }
+
+/** Trạng thái đồng bộ với server. Chỉ dùng cho chỉ báo, không chặn nội dung. */
+export type SyncStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 interface ExpenseState {
   transactions: Transaction[]
   /** Danh mục sửa được (tên + màu) ở màn Danh mục. */
   categories: Category[]
   budgets: Budgets
-  /** Tháng đang xem, dạng "2026-09". */
+  /** Tháng đang xem, dạng "2026-09". Chỉ là view state, không lưu lên server. */
   activeMonth: string
-  /** Cờ hydrate — xem ghi chú skipHydration bên dưới. */
+  /**
+   * Đã có dữ liệu để vẽ chưa. Là LATCH MỘT CHIỀU: false -> true, không bao giờ
+   * quay lại. 10 component dùng nó để quyết định hiện skeleton hay số thật; cho
+   * nó lật lại khi refetch thì mỗi lần đồng bộ nền cả dashboard sẽ nháy về
+   * skeleton. Trạng thái đồng bộ chi tiết nằm ở `syncStatus`.
+   * Chỉ đặt lại false khi đăng xuất (signOutAndClear).
+   */
   hasHydrated: boolean
+  syncStatus: SyncStatus
+  /** Id người dùng đang đăng nhập; cần khi ghi để thoả policy RLS. */
+  userId: string | null
 
-  addTransaction: (input: NewTransaction) => string
-  updateTransaction: (id: string, patch: Partial<NewTransaction>) => void
-  removeTransaction: (id: string) => void
+  loadFromServer: (userId: string) => Promise<void>
+  signOutAndClear: () => void
+
+  addTransaction: (input: NewTransaction) => Promise<string>
+  updateTransaction: (id: string, patch: Partial<NewTransaction>) => Promise<void>
+  removeTransaction: (id: string) => Promise<void>
   setActiveMonth: (month: string) => void
   setHasHydrated: (value: boolean) => void
 
-  updateCategory: (id: CategoryId, patch: Partial<Omit<Category, 'id'>>) => void
-  /** Chỉ xoá được danh mục không còn giao dịch nào. Trả về true nếu đã xoá. */
-  removeCategory: (id: CategoryId) => boolean
+  updateCategory: (
+    id: CategoryId,
+    patch: Partial<Omit<Category, 'id'>>,
+  ) => Promise<void>
+  /** Chỉ xoá được danh mục không còn giao dịch nào. */
+  removeCategory: (id: CategoryId) => Promise<RemoveCategoryResult>
 
-  setBudget: (categoryId: CategoryId, limit: number, month?: string) => void
-  clearBudget: (categoryId: CategoryId, month?: string) => void
-
-  reset: () => void
+  setBudget: (categoryId: CategoryId, limit: number, month?: string) => Promise<void>
+  clearBudget: (categoryId: CategoryId, month?: string) => Promise<void>
 }
 
 /**
  * Tháng của một giao dịch, theo **giờ địa phương**.
  * Không cắt chuỗi ISO: ISO là giờ UTC, nên ở UTC+7 mọi khoản ghi trước 07:00
  * sáng sẽ bị đẩy sang tháng trước — sai cả tổng tháng lẫn ngân sách.
+ *
+ * Đây là định nghĩa "tháng" DUY NHẤT của app. Postgres chỉ lưu occurred_at
+ * dạng timestamptz và không bao giờ tự gom tháng — thêm date_trunc hay cột
+ * tháng sinh tự động ở server sẽ tạo định nghĩa thứ hai, lệch âm thầm.
  */
 const monthKey = (iso: string) => {
   const d = new Date(iso)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
-const uid = () => `tx_${Math.random().toString(36).slice(2, 10)}`
-const at = (day: string, time = '09:00') =>
-  new Date(`${day}T${time}:00`).toISOString()
 
-/**
- * Dữ liệu mẫu — khớp đúng số trong thiết kế: thu 24.500.000đ · chi 16.180.000đ
- * · tiết kiệm 34%, và 6 lát donut đúng như "Nội dung mẫu" trong README.
- *
- * Ngày nằm trong `activeMonth` ("2026-09"). Bản handoff đặt phần lớn khoản chi
- * vào tháng 8 nên các số "tháng 9" trong README không bao giờ ra đúng — số tổng
- * đều là selector lọc theo tháng. Giữ nguyên số tiền, danh mục, nguồn tiền và
- * ghi chú của handoff, chỉ dời ngày.
- */
-const SEED: Transaction[] = [
-  { id: 'tx_3', type: 'expense', amountVnd: 65_000, categoryId: 'cafe', accountId: 'cash', note: 'Cafe Highlands', occurredAt: at('2026-09-03', '09:12'), createdAt: at('2026-09-03', '09:12') },
-  { id: 'tx_1', type: 'income', amountVnd: 22_000_000, categoryId: 'luong', accountId: 'techcombank', note: 'Lương tháng 9', occurredAt: at('2026-09-03', '08:00'), createdAt: at('2026-09-03', '08:00') },
-  { id: 'tx_4', type: 'expense', amountVnd: 78_000, categoryId: 'di-lai', accountId: 'momo', note: 'Grab về nhà', occurredAt: at('2026-09-02', '22:40'), createdAt: at('2026-09-02', '22:40') },
-  { id: 'tx_5', type: 'expense', amountVnd: 412_000, categoryId: 'an-uong', accountId: 'cash', note: 'Đi chợ nấu ăn cuối tuần', occurredAt: at('2026-09-02', '17:05'), createdAt: at('2026-09-02', '17:05') },
-  { id: 'tx_6', type: 'expense', amountVnd: 260_000, categoryId: 'khac', accountId: 'techcombank', note: 'Netflix', occurredAt: at('2026-09-02', '07:00'), createdAt: at('2026-09-02', '07:00') },
-  { id: 'tx_7', type: 'expense', amountVnd: 5_500_000, categoryId: 'nha-cua', accountId: 'techcombank', note: 'Tiền nhà tháng 9', occurredAt: at('2026-09-01', '10:00'), createdAt: at('2026-09-01', '10:00') },
-  { id: 'tx_2', type: 'income', amountVnd: 2_500_000, categoryId: 'khac', accountId: 'techcombank', note: 'Freelance sửa landing', occurredAt: at('2026-09-01', '08:30'), createdAt: at('2026-09-01', '08:30') },
-  { id: 'tx_8', type: 'expense', amountVnd: 4_828_000, categoryId: 'an-uong', accountId: 'cash', note: 'Ăn uống trong tháng', occurredAt: at('2026-09-01', '08:00'), createdAt: at('2026-09-01', '08:00') },
-  { id: 'tx_9', type: 'expense', amountVnd: 1_782_000, categoryId: 'di-lai', accountId: 'momo', note: 'Xăng + Grab', occurredAt: at('2026-09-01', '07:30'), createdAt: at('2026-09-01', '07:30') },
-  { id: 'tx_10', type: 'expense', amountVnd: 1_420_000, categoryId: 'mua-sam', accountId: 'techcombank', note: 'Áo khoác', occurredAt: at('2026-09-01', '07:00'), createdAt: at('2026-09-01', '07:00') },
-  { id: 'tx_11', type: 'expense', amountVnd: 825_000, categoryId: 'cafe', accountId: 'cash', note: 'Cafe làm việc', occurredAt: at('2026-09-01', '06:30'), createdAt: at('2026-09-01', '06:30') },
-  { id: 'tx_12', type: 'expense', amountVnd: 1_010_000, categoryId: 'khac', accountId: 'techcombank', note: 'Thuốc + tạp hoá', occurredAt: at('2026-09-01', '06:00'), createdAt: at('2026-09-01', '06:00') },
-  // Tháng 8 để màn Báo cáo có gì mà so sánh.
-  { id: 'tx_13', type: 'income', amountVnd: 22_000_000, categoryId: 'luong', accountId: 'techcombank', note: 'Lương tháng 8', occurredAt: at('2026-08-03', '08:00'), createdAt: at('2026-08-03', '08:00') },
-  { id: 'tx_14', type: 'expense', amountVnd: 5_500_000, categoryId: 'nha-cua', accountId: 'techcombank', note: 'Tiền nhà tháng 8', occurredAt: at('2026-08-01', '10:00'), createdAt: at('2026-08-01', '10:00') },
-  { id: 'tx_15', type: 'expense', amountVnd: 6_140_000, categoryId: 'an-uong', accountId: 'cash', note: 'Ăn uống tháng 8', occurredAt: at('2026-08-20', '12:00'), createdAt: at('2026-08-20', '12:00') },
-  { id: 'tx_16', type: 'expense', amountVnd: 2_310_000, categoryId: 'di-lai', accountId: 'momo', note: 'Đi lại tháng 8', occurredAt: at('2026-08-18', '12:00'), createdAt: at('2026-08-18', '12:00') },
-  { id: 'tx_17', type: 'expense', amountVnd: 1_890_000, categoryId: 'mua-sam', accountId: 'techcombank', note: 'Mua sắm tháng 8', occurredAt: at('2026-08-15', '15:30'), createdAt: at('2026-08-15', '15:30') },
-  { id: 'tx_18', type: 'expense', amountVnd: 1_820_000, categoryId: 'khac', accountId: 'techcombank', note: 'Chi khác tháng 8', occurredAt: at('2026-08-10', '18:00'), createdAt: at('2026-08-10', '18:00') },
-]
-
-/**
- * Hạn mức mẫu — tổng 24.000.000đ, đúng thẻ "Cả tháng" trong thiết kế (67%).
- * Hai mốc lấy thẳng từ README: Nhà cửa còn 500.000đ ở 92%, Ăn uống vượt
- * 240.000đ ở 105%. "Khác" cố tình để trống để thấy nhóm "Chưa đặt hạn mức".
- */
-const MONTH_BUDGET: Record<string, number> = {
-  'nha-cua': 6_000_000,
-  'an-uong': 5_000_000,
-  'di-lai': 4_000_000,
-  'mua-sam': 5_000_000,
-  cafe: 4_000_000,
-}
-
-const SEED_BUDGETS: Budgets = {
-  '2026-09': MONTH_BUDGET,
-  '2026-08': MONTH_BUDGET,
-}
+/** Mã lỗi Postgres đi kèm trong lỗi của supabase-js. */
+const errorCode = (error: unknown): string | undefined =>
+  typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code: unknown }).code)
+    : undefined
 
 export const useExpenseStore = create<ExpenseState>()(
   persist(
     (set, get) => ({
-      transactions: SEED,
-      categories: DEFAULT_CATEGORIES,
-      budgets: SEED_BUDGETS,
-      activeMonth: '2026-09',
+      // Bắt đầu RỖNG: server mới là nguồn sự thật. Dữ liệu thật đến từ
+      // loadFromServer, còn cache localStorage chỉ để lần sơn đầu đỡ trắng màn.
+      transactions: [],
+      categories: [],
+      budgets: {},
+      activeMonth: SEED_ACTIVE_MONTH,
       hasHydrated: false,
+      syncStatus: 'idle',
+      userId: null,
 
-      addTransaction: (input) => {
-        const tx: Transaction = {
-          ...input,
-          id: uid(),
-          createdAt: new Date().toISOString(),
+      loadFromServer: async (userId) => {
+        set({ syncStatus: 'loading', userId })
+        try {
+          const snapshot = await fetchSnapshot(createClient())
+          set({
+            transactions: snapshot.transactions,
+            categories: snapshot.categories,
+            budgets: snapshot.budgets,
+            syncStatus: 'ready',
+            hasHydrated: true,
+          })
+        } catch {
+          // Mất mạng: giữ nguyên cache đã đọc từ localStorage để vẫn xem được
+          // số cũ, chỉ báo trạng thái lỗi.
+          set({ syncStatus: 'error' })
         }
+      },
+
+      /**
+       * Xoá sạch khi đăng xuất. Bắt buộc, không phải dọn dẹp cho gọn: máy này
+       * có thể được người khác đăng nhập ngay sau đó, và cache localStorage sẽ
+       * hiện thoáng số của tài khoản cũ trước khi fetch mới kịp về.
+       */
+      signOutAndClear: () => {
+        set({
+          transactions: [],
+          categories: [],
+          budgets: {},
+          activeMonth: SEED_ACTIVE_MONTH,
+          hasHydrated: false,
+          syncStatus: 'idle',
+          userId: null,
+        })
+        try {
+          localStorage.removeItem('vi-rieng/expenses')
+        } catch {
+          // Chế độ riêng tư chặn localStorage — state trong bộ nhớ đã sạch rồi.
+        }
+      },
+
+      addTransaction: async (input) => {
+        const userId = get().userId
+        if (!userId) throw new Error('Chưa đăng nhập')
+
+        const tx = await insertTransaction(createClient(), userId, input)
         set((s) => ({ transactions: [tx, ...s.transactions] }))
         return tx.id
       },
 
-      updateTransaction: (id, patch) =>
+      updateTransaction: async (id, patch) => {
+        const updated = await updateTransactionRow(createClient(), id, patch)
         set((s) => ({
-          transactions: s.transactions.map((t) =>
-            t.id === id ? { ...t, ...patch } : t,
-          ),
-        })),
+          transactions: s.transactions.map((t) => (t.id === id ? updated : t)),
+        }))
+      },
 
-      removeTransaction: (id) =>
-        set((s) => ({ transactions: s.transactions.filter((t) => t.id !== id) })),
+      removeTransaction: async (id) => {
+        await deleteTransaction(createClient(), id)
+        set((s) => ({ transactions: s.transactions.filter((t) => t.id !== id) }))
+      },
 
       setActiveMonth: (activeMonth) => set({ activeMonth }),
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
 
-      updateCategory: (id, patch) =>
+      updateCategory: async (id, patch) => {
+        await updateCategoryRow(createClient(), id, patch)
         set((s) => ({
           categories: s.categories.map((c) =>
             c.id === id ? { ...c, ...patch } : c,
           ),
-        })),
+        }))
+      },
 
-      removeCategory: (id) => {
-        // Chỉ xoá được khi không còn giao dịch nào dùng danh mục này.
-        const inUse = get().transactions.some((t) => t.categoryId === id)
-        if (inUse) return false
+      removeCategory: async (id) => {
+        // Chặn sớm phía client để không phải đợi server nói điều đã biết.
+        // Chốt chặn thật là khoá ngoại ON DELETE RESTRICT ở Postgres: mảng
+        // trong máy có thể cũ (máy khác vừa thêm giao dịch).
+        if (get().transactions.some((t) => t.categoryId === id)) {
+          return { ok: false, reason: 'in-use' }
+        }
+
+        try {
+          await deleteCategory(createClient(), id)
+        } catch (error) {
+          return {
+            ok: false,
+            reason: errorCode(error) === FK_VIOLATION ? 'in-use' : 'network',
+          }
+        }
+
         set((s) => ({
           categories: s.categories.filter((c) => c.id !== id),
+          // Hạn mức của danh mục này biến mất ở MỌI tháng. Postgres đã lo bằng
+          // ON DELETE CASCADE; đây là dọn lại bản cache cho khớp.
           budgets: Object.fromEntries(
             Object.entries(s.budgets).map(([month, limits]) => [
               month,
@@ -159,64 +217,59 @@ export const useExpenseStore = create<ExpenseState>()(
             ]),
           ),
         }))
-        return true
+        return { ok: true }
       },
 
-      setBudget: (categoryId, limit, month) =>
-        set((s) => {
-          const key = month ?? s.activeMonth
-          return {
-            budgets: {
-              ...s.budgets,
-              [key]: { ...(s.budgets[key] ?? {}), [categoryId]: limit },
-            },
-          }
-        }),
+      setBudget: async (categoryId, limit, month) => {
+        const { userId, activeMonth } = get()
+        if (!userId) throw new Error('Chưa đăng nhập')
+        // Chốt tháng TRƯỚC khi await: đổi tháng giữa chừng mà đọc sau thì hạn
+        // mức sẽ ghi vào nhầm tháng.
+        const key = month ?? activeMonth
 
-      clearBudget: (categoryId, month) =>
+        await upsertBudget(createClient(), userId, key, categoryId, limit)
+        set((s) => ({
+          budgets: {
+            ...s.budgets,
+            [key]: { ...(s.budgets[key] ?? {}), [categoryId]: limit },
+          },
+        }))
+      },
+
+      clearBudget: async (categoryId, month) => {
+        const key = month ?? get().activeMonth
+
+        await deleteBudget(createClient(), key, categoryId)
         set((s) => {
-          const key = month ?? s.activeMonth
           const rest = Object.fromEntries(
             Object.entries(s.budgets[key] ?? {}).filter(([id]) => id !== categoryId),
           )
           return { budgets: { ...s.budgets, [key]: rest } }
-        }),
-
-      reset: () =>
-        set({
-          transactions: SEED,
-          categories: DEFAULT_CATEGORIES,
-          budgets: SEED_BUDGETS,
-          activeMonth: '2026-09',
-        }),
+        })
+      },
     }),
     {
       name: 'vi-rieng/expenses',
-      // v2: seed cũ đặt khoản chi vào tháng 8 trong khi activeMonth là tháng 9,
-      // và monthKey khi đó gom tháng theo giờ UTC. Trình duyệt đã lưu bản cũ
-      // sẽ nạp lại dữ liệu mẫu đúng thay vì giữ số sai.
-      version: 2,
+      // v3: dữ liệu chuyển lên Supabase. Bản lưu cũ là dữ liệu mẫu localStorage
+      // hoặc dữ liệu thật chưa đẩy lên — bỏ đi ở đây thì mất, nên KHÔNG xoá:
+      // giữ nguyên để luồng di trú (components/store-bootstrap.tsx) đọc và hỏi
+      // người dùng có muốn đẩy lên tài khoản không.
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
         transactions: s.transactions,
         categories: s.categories,
         budgets: s.budgets,
+        // activeMonth là view state phía client, phải nằm lại đây để chọn tháng
+        // xong tải lại trang vẫn giữ nguyên.
         activeMonth: s.activeMonth,
       }),
-      // Hydrate từ một effect phía client (xem StoreHydration). Nếu không,
+      // Hydrate từ một effect phía client (xem StoreBootstrap). Nếu không,
       // persist đọc localStorage ngay khi module nạp, nên lần render client
       // đầu tiên đã khác server render -> React báo hydration mismatch.
       skipHydration: true,
-      // Bản lưu cũ hơn thì bỏ, dùng lại dữ liệu mẫu đã sửa.
-      migrate: () => ({
-        transactions: SEED,
-        categories: DEFAULT_CATEGORIES,
-        budgets: SEED_BUDGETS,
-        activeMonth: '2026-09',
-      }),
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true)
-      },
+      // Bản v2 trở về trước có cùng hình dạng; giữ nguyên để luồng di trú xử lý.
+      migrate: (persisted) => persisted as Partial<ExpenseState>,
     },
   ),
 )

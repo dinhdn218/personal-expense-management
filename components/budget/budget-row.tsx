@@ -21,16 +21,38 @@ export function BudgetRow({ row, compact }: { row: CategoryBudgetRow; compact?: 
   const [draft, setDraft] = useState('')
   // Gỡ hạn mức là mất dữ liệu, nên hỏi lại một nhịp — cùng lối với xoá giao dịch.
   const [confirmingClear, setConfirmingClear] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   const percent = row.limit > 0 ? Math.round((row.used / row.limit) * 100) : 0
   const remaining = Math.max(0, row.limit - row.used)
 
-  function save() {
+  async function save() {
     const value = parseAmountVnd(draft)
     if (!value) return
-    setBudget(row.categoryId, value)
+    setBusy(true)
+    try {
+      await setBudget(row.categoryId, value)
+    } catch {
+      // Lưu hỏng thì giữ nguyên ô đang sửa để không mất số vừa gõ.
+      setBusy(false)
+      return
+    }
+    setBusy(false)
     setEditing(false)
     setDraft('')
+  }
+
+  async function clear() {
+    setBusy(true)
+    try {
+      await clearBudget(row.categoryId)
+    } catch {
+      // Gỡ hỏng thì giữ nguyên hộp xác nhận — đóng nó lại sẽ trông như đã xong.
+      setBusy(false)
+      return
+    }
+    setBusy(false)
+    setConfirmingClear(false)
   }
 
   /* Chưa đặt hạn mức: vẫn tính vào tổng chi, chỉ không có thanh tiến độ. */
@@ -68,6 +90,7 @@ export function BudgetRow({ row, compact }: { row: CategoryBudgetRow; compact?: 
             draft={draft}
             onDraft={setDraft}
             onSave={save}
+            busy={busy}
             onCancel={() => setEditing(false)}
           />
         )}
@@ -166,6 +189,7 @@ export function BudgetRow({ row, compact }: { row: CategoryBudgetRow; compact?: 
           draft={draft}
           onDraft={setDraft}
           onSave={save}
+          busy={busy}
           onCancel={() => setEditing(false)}
         />
       )}
@@ -179,13 +203,11 @@ export function BudgetRow({ row, compact }: { row: CategoryBudgetRow; compact?: 
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={() => {
-                clearBudget(row.categoryId)
-                setConfirmingClear(false)
-              }}
-              className="h-[44px] shrink-0 rounded-[13px] bg-negative px-4 text-[13px] font-extrabold text-white"
+              onClick={clear}
+              disabled={busy}
+              className="h-[44px] shrink-0 rounded-[13px] bg-negative px-4 text-[13px] font-extrabold text-white disabled:opacity-60"
             >
-              Gỡ hạn mức
+              {busy ? 'Đang gỡ…' : 'Gỡ hạn mức'}
             </button>
             <button
               type="button"
@@ -207,15 +229,17 @@ function LimitInput({
   draft,
   onDraft,
   onSave,
+  busy,
   onCancel,
 }: {
   label: string
   draft: string
   onDraft: (value: string) => void
   onSave: () => void
+  busy?: boolean
   onCancel: () => void
 }) {
-  const valid = parseAmountVnd(draft)
+  const valid = parseAmountVnd(draft) && !busy
   return (
     <div className="flex items-center gap-2">
       <input
@@ -223,7 +247,7 @@ function LimitInput({
         value={draft}
         onChange={(e) => onDraft(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') onSave()
+          if (e.key === 'Enter' && valid) onSave()
           if (e.key === 'Escape') onCancel()
         }}
         placeholder="VD: 2tr"
@@ -239,7 +263,7 @@ function LimitInput({
           !valid && 'opacity-40',
         )}
       >
-        Lưu
+        {busy ? 'Đang lưu…' : 'Lưu'}
       </button>
       <button
         type="button"

@@ -1,4 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({}) }))
+vi.mock('@/lib/supabase/queries', async () => {
+  const { queryMocks } = await import('./test-supabase')
+  return { ...queryMocks, FK_VIOLATION: '23503' }
+})
+
 import {
   computeBudgetRows,
   computeBudgetStatus,
@@ -117,18 +124,37 @@ describe('removeCategory', () => {
         { id: 'nhau', label: 'Nhậu', color: 'var(--c4)' },
       ],
       budgets: { '2026-09': { cafe: 1_000_000, nhau: 500_000 } },
+      userId: 'u1',
     })
   })
 
-  it('không xoá danh mục còn giao dịch', () => {
-    expect(useExpenseStore.getState().removeCategory('cafe')).toBe(false)
+  it('không xoá danh mục còn giao dịch', async () => {
+    const result = await useExpenseStore.getState().removeCategory('cafe')
+    expect(result).toEqual({ ok: false, reason: 'in-use' })
     expect(useExpenseStore.getState().categories).toHaveLength(2)
   })
 
-  it('xoá được danh mục rỗng và dọn luôn hạn mức của nó', () => {
-    expect(useExpenseStore.getState().removeCategory('nhau')).toBe(true)
+  it('xoá được danh mục rỗng và dọn luôn hạn mức của nó', async () => {
+    const result = await useExpenseStore.getState().removeCategory('nhau')
+    expect(result).toEqual({ ok: true })
     expect(useExpenseStore.getState().categories.map((c) => c.id)).toEqual(['cafe'])
     expect(useExpenseStore.getState().budgets['2026-09']).toEqual({ cafe: 1_000_000 })
+  })
+
+  it('báo in-use khi Postgres chặn bằng khoá ngoại, dù cache trong máy đã cũ', async () => {
+    const { queryMocks } = await import('./test-supabase')
+    queryMocks.deleteCategory.mockRejectedValueOnce({ code: '23503' })
+    // Cache không thấy giao dịch nào dùng 'nhau', nhưng máy khác vừa thêm.
+    const result = await useExpenseStore.getState().removeCategory('nhau')
+    expect(result).toEqual({ ok: false, reason: 'in-use' })
+    expect(useExpenseStore.getState().categories).toHaveLength(2)
+  })
+
+  it('báo network khi lỗi không phải khoá ngoại', async () => {
+    const { queryMocks } = await import('./test-supabase')
+    queryMocks.deleteCategory.mockRejectedValueOnce(new Error('offline'))
+    const result = await useExpenseStore.getState().removeCategory('nhau')
+    expect(result).toEqual({ ok: false, reason: 'network' })
   })
 })
 
@@ -138,11 +164,12 @@ describe('updateCategory / setBudget', () => {
       categories: [{ id: 'cafe', label: 'Cafe', color: 'var(--c5)' }],
       budgets: {},
       activeMonth: '2026-09',
+      userId: 'u1',
     })
   })
 
-  it('sửa tên và màu tại chỗ', () => {
-    useExpenseStore.getState().updateCategory('cafe', {
+  it('sửa tên và màu tại chỗ', async () => {
+    await useExpenseStore.getState().updateCategory('cafe', {
       label: 'Cà phê',
       color: 'var(--c1)',
     })
@@ -153,12 +180,23 @@ describe('updateCategory / setBudget', () => {
     })
   })
 
-  it('đặt và xoá hạn mức theo tháng đang xem', () => {
-    useExpenseStore.getState().setBudget('cafe', 900_000)
+  it('đặt và xoá hạn mức theo tháng đang xem', async () => {
+    await useExpenseStore.getState().setBudget('cafe', 900_000)
     expect(useExpenseStore.getState().budgets['2026-09'].cafe).toBe(900_000)
 
-    useExpenseStore.getState().clearBudget('cafe')
+    await useExpenseStore.getState().clearBudget('cafe')
     expect(useExpenseStore.getState().budgets['2026-09'].cafe).toBeUndefined()
+  })
+
+  it('gỡ hạn mức là XOÁ dòng chứ không ghi 0', async () => {
+    const { queryMocks } = await import('./test-supabase')
+    await useExpenseStore.getState().setBudget('cafe', 900_000)
+    await useExpenseStore.getState().clearBudget('cafe')
+    // Ghi 0 sẽ làm computeBudgetRows hiện thanh 0đ thay vì nhóm "Chưa đặt".
+    expect(queryMocks.deleteBudget).toHaveBeenCalledWith({}, '2026-09', 'cafe')
+    expect(queryMocks.upsertBudget).not.toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), expect.anything(), expect.anything(), 0,
+    )
   })
 })
 

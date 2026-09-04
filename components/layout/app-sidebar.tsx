@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Brand } from '@/components/layout/brand'
 import { NAV_ITEMS, isActive } from '@/components/layout/nav-items'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { AmountSkeleton, glass } from '@/components/ui/glass-card'
 import { formatVnd } from '@/lib/format'
+import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
   useBudgetStatus,
@@ -24,6 +25,7 @@ function daysLeftIn(month: string, now = new Date()) {
 
 export function AppSidebar({ className }: { className?: string }) {
   const pathname = usePathname()
+  const router = useRouter()
   const hasHydrated = useExpenseStore((s) => s.hasHydrated)
   const activeMonth = useExpenseStore((s) => s.activeMonth)
   const { expense } = useMonthlySummary()
@@ -31,6 +33,14 @@ export function AppSidebar({ className }: { className?: string }) {
 
   const used = Math.round(budget.share * 100)
   const remaining = Math.max(0, budget.limit - expense)
+
+  async function signOut() {
+    // Xoá cache TRƯỚC khi rời trang: người khác đăng nhập trên cùng máy sẽ
+    // thấy thoáng số của tài khoản cũ nếu cache còn.
+    useExpenseStore.getState().signOutAndClear()
+    await createClient().auth.signOut()
+    router.push('/dang-nhap')
+  }
 
   return (
     <aside
@@ -96,6 +106,14 @@ export function AppSidebar({ className }: { className?: string }) {
             : ' '}
         </p>
       </section>
+
+      <button
+        type="button"
+        onClick={signOut}
+        className="mt-auto shrink-0 text-left text-[13px] font-bold text-muted transition-colors duration-[120ms] hover:text-foreground"
+      >
+        Đăng xuất
+      </button>
     </aside>
   )
 }

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { resetStore } from './helpers'
+import { SEED_IDS } from './seed-data'
 
 test.beforeEach(async ({ page }) => {
   await resetStore(page)
@@ -55,7 +56,7 @@ test('không còn nút chết nào trên Tổng quan', async ({ page }) => {
 test('sửa được giao dịch ngay từ thẻ trên Tổng quan', async ({ page }) => {
   await page.goto('/')
 
-  await page.getByTestId('recent-row-tx_3').click()
+  await page.getByTestId(`recent-row-${SEED_IDS.cafeHighlands}`).click()
 
   const name = page.getByLabel('Tên giao dịch')
   await expect(name).toBeVisible()

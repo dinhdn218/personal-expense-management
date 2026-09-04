@@ -105,7 +105,18 @@ function CategoryRow({
   onEdit: () => void
 }) {
   const removeCategory = useExpenseStore((s) => s.removeCategory)
+  const [failed, setFailed] = useState(false)
+  const [busy, setBusy] = useState(false)
   const deletable = count === 0
+
+  async function remove() {
+    setBusy(true)
+    const result = await removeCategory(id)
+    setBusy(false)
+    // reason 'in-use' thì nút đã bị vô hiệu sẵn và có dòng giải thích bên dưới,
+    // nên chỉ cần báo khi hỏng vì mạng.
+    setFailed(!result.ok && result.reason === 'network')
+  }
 
   return (
     <div
@@ -142,17 +153,23 @@ function CategoryRow({
           </button>
           <button
             type="button"
-            onClick={() => removeCategory(id)}
-            disabled={!deletable}
+            onClick={remove}
+            disabled={!deletable || busy}
             className={cn(
               'text-[13px] font-bold',
               deletable ? 'text-negative' : 'cursor-not-allowed text-foreground/35',
             )}
           >
-            Xoá
+            {busy ? 'Đang xoá…' : 'Xoá'}
           </button>
         </span>
       </div>
+
+      {failed && (
+        <p role="alert" className="mt-1.5 text-[12.5px] font-semibold text-negative">
+          Chưa xoá được — không kết nối được máy chủ. Thử lại sau.
+        </p>
+      )}
 
       {/* Nói thẳng lý do ngay dưới, không ẩn nút. */}
       {!deletable && (
@@ -181,11 +198,20 @@ function CategoryEditor({
   const updateCategory = useExpenseStore((s) => s.updateCategory)
   const [draftLabel, setDraftLabel] = useState(label)
   const [draftColor, setDraftColor] = useState(color)
+  const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle')
 
-  function save() {
+  async function save() {
     const name = draftLabel.trim()
     if (!name) return
-    updateCategory(id, { label: name, color: draftColor })
+    setStatus('saving')
+    try {
+      await updateCategory(id, { label: name, color: draftColor })
+    } catch {
+      // Giữ nguyên ô đang sửa để không mất tên vừa gõ.
+      setStatus('error')
+      return
+    }
+    setStatus('idle')
     onDone()
   }
 
@@ -233,18 +259,24 @@ function CategoryEditor({
         })}
       </div>
 
+      {status === 'error' && (
+        <p role="alert" className="mt-3 text-[12.5px] font-semibold text-negative">
+          Chưa lưu được — không kết nối được máy chủ. Thử lại sau.
+        </p>
+      )}
+
       <div className="mt-3.5 flex items-center gap-2.5">
         <button
           type="button"
           onClick={save}
-          disabled={!draftLabel.trim()}
+          disabled={!draftLabel.trim() || status === 'saving'}
           className={cn(
             'h-[46px] rounded-[13px] bg-accent px-5 text-[14px] font-extrabold text-accent-foreground',
             'transition-[filter] duration-[120ms] hover:brightness-[1.06] active:brightness-90',
-            !draftLabel.trim() && 'opacity-40',
+            (!draftLabel.trim() || status === 'saving') && 'opacity-40',
           )}
         >
-          Lưu
+          {status === 'saving' ? 'Đang lưu…' : 'Lưu'}
         </button>
         <button
           type="button"

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { AmountInput } from '@/components/transaction/amount-input'
 import { Numpad } from '@/components/transaction/numpad'
+import { SaveError } from '@/components/transaction/save-error'
 import {
   Dialog,
   DialogContent,
@@ -108,6 +109,7 @@ function EditBody({
   const [amountRaw, setAmountRaw] = useState('')
   const [editingAmount, setEditingAmount] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle')
   const [draftKey, setDraftKey] = useState<string | null>(null)
   const [note, setNote] = useState('')
   const [occurredAt, setOccurredAt] = useState('')
@@ -125,25 +127,49 @@ function EditBody({
     setAccountId(transaction.accountId)
     setEditingAmount(false)
     setConfirmingDelete(false)
+    setStatus('idle')
   }
 
   if (!transaction) return null
 
   const parsedAmount = parseAmountVnd(amountRaw)
-  const canSave = Boolean(parsedAmount && categoryId && occurredAt)
+  const saving = status === 'saving'
+  const canSave = Boolean(parsedAmount && categoryId && occurredAt) && !saving
   const categoryIds =
     transaction.type === 'income' ? INCOME_CATEGORY_IDS : EXPENSE_CATEGORY_IDS
   const options = categories.filter((c) => categoryIds.includes(c.id))
 
-  function save() {
+  async function save() {
     if (!parsedAmount || !transaction) return
-    updateTransaction(transaction.id, {
-      amountVnd: parsedAmount,
-      categoryId,
-      accountId,
-      note: note.trim() || undefined,
-      occurredAt: new Date(occurredAt).toISOString(),
-    })
+    setStatus('saving')
+    try {
+      await updateTransaction(transaction.id, {
+        amountVnd: parsedAmount,
+        categoryId,
+        accountId,
+        note: note.trim() || undefined,
+        occurredAt: new Date(occurredAt).toISOString(),
+      })
+    } catch {
+      // onClose PHẢI nằm trong nhánh thành công: đóng dialog khi lưu hỏng thì
+      // người dùng tưởng đã lưu xong mà thực ra chưa có gì thay đổi.
+      setStatus('error')
+      return
+    }
+    setStatus('idle')
+    onClose()
+  }
+
+  async function remove() {
+    if (!transaction) return
+    setStatus('saving')
+    try {
+      await removeTransaction(transaction.id)
+    } catch {
+      setStatus('error')
+      return
+    }
+    setStatus('idle')
     onClose()
   }
 
@@ -168,7 +194,7 @@ function EditBody({
             !canSave && 'opacity-40',
           )}
         >
-          Lưu
+          {saving ? 'Đang lưu…' : 'Lưu'}
         </button>
       </div>
 
@@ -282,6 +308,8 @@ function EditBody({
         {formatStamp(transaction.createdAt)}
       </p>
 
+      {status === 'error' && <SaveError onRetry={() => setStatus('idle')} />}
+
       {/* Xoá — cuối vùng cuộn, không nằm trong vùng neo đáy */}
       {confirmingDelete ? (
         <div className="rounded-[18px] border border-negative/40 bg-negative/12 p-3.5">
@@ -296,13 +324,11 @@ function EditBody({
             <motion.button
               type="button"
               whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                removeTransaction(transaction.id)
-                onClose()
-              }}
-              className="h-[52px] flex-1 rounded-[15px] bg-negative text-[15px] font-extrabold text-negative-foreground transition-[filter] duration-[120ms] hover:brightness-[1.06] active:brightness-90"
+              onClick={remove}
+              disabled={saving}
+              className="h-[52px] flex-1 rounded-[15px] bg-negative text-[15px] font-extrabold text-negative-foreground transition-[filter] duration-[120ms] hover:brightness-[1.06] active:brightness-90 disabled:opacity-60"
             >
-              Xoá
+              {saving ? 'Đang xoá…' : 'Xoá'}
             </motion.button>
             <button
               type="button"

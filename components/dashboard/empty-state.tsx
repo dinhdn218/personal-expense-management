@@ -2,11 +2,10 @@
 
 import { TransactionSheet } from '@/components/transaction/transaction-sheet'
 import { cn } from '@/lib/utils'
-import { useExpenseStore } from '@/store/useExpenseStore'
 
 /**
  * Trạng thái rỗng. `withActions` dùng cho màn rỗng toàn trang (2f): không vẽ
- * thẻ số dư rỗng hay biểu đồ trống, chỉ một lời mời và hai nút.
+ * thẻ số dư rỗng hay biểu đồ trống, chỉ một lời mời và nút thêm giao dịch.
  */
 export function EmptyState({
   className,
@@ -17,8 +16,6 @@ export function EmptyState({
   message?: string
   withActions?: boolean
 }) {
-  const reset = useExpenseStore((s) => s.reset)
-
   return (
     <div
       className={cn(
@@ -43,13 +40,6 @@ export function EmptyState({
             label="+ Thêm giao dịch"
             triggerClassName="h-[52px] w-full rounded-2xl text-[16.5px]"
           />
-          <button
-            type="button"
-            onClick={reset}
-            className="h-12 w-full rounded-2xl border border-glass-border text-[14.5px] font-bold transition-colors duration-[120ms] hover:bg-foreground/5"
-          >
-            Dùng dữ liệu mẫu để xem thử
-          </button>
         </div>
       )}
     </div>
