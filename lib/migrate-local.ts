@@ -12,6 +12,15 @@ import type { Transaction } from '@/types/transaction'
 
 export const STORAGE_KEY = 'vi-rieng/expenses'
 export const DECLINED_KEY = 'vi-rieng/migration-declined'
+/**
+ * Bản sao lưu dữ liệu cũ, tách khỏi STORAGE_KEY.
+ *
+ * Cần thiết vì zustand/persist ghi đè STORAGE_KEY ngay khi loadFromServer trả
+ * về: với tài khoản mới (server rỗng), dữ liệu cũ của người dùng bị xoá trắng
+ * trong chưa tới một giây. Chép sang khoá riêng thì bấm "Bỏ qua" mới thật sự
+ * giữ lại được, đúng như hộp thoại hứa.
+ */
+export const BACKUP_KEY = 'vi-rieng/pre-supabase-backup'
 
 export interface LocalSnapshot {
   transactions: Transaction[]
@@ -27,7 +36,9 @@ export function readLocalSnapshot(): LocalSnapshot | null {
   try {
     if (localStorage.getItem(DECLINED_KEY)) return null
 
-    const raw = localStorage.getItem(STORAGE_KEY)
+    // Ưu tiên bản sao lưu: STORAGE_KEY có thể đã bị persist ghi đè bằng dữ liệu
+    // server ở lần mở trước.
+    const raw = localStorage.getItem(BACKUP_KEY) ?? localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
 
     const parsed = JSON.parse(raw) as { state?: Partial<LocalSnapshot> }
@@ -48,6 +59,27 @@ export function readLocalSnapshot(): LocalSnapshot | null {
   }
 }
 
+/**
+ * Chép dữ liệu cũ sang khoá sao lưu trước khi persist kịp ghi đè.
+ * Gọi càng sớm càng tốt trong bootstrap, trước mọi thao tác chạm store.
+ */
+export function backupLocalSnapshot() {
+  try {
+    if (localStorage.getItem(DECLINED_KEY)) return
+    if (localStorage.getItem(BACKUP_KEY)) return // đã sao lưu rồi, đừng đè
+
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return
+
+    const parsed = JSON.parse(raw) as { state?: { transactions?: unknown[] } }
+    if (!parsed?.state?.transactions?.length) return
+
+    localStorage.setItem(BACKUP_KEY, raw)
+  } catch {
+    // Không sao lưu được thì thôi; luồng di trú chỉ đơn giản là không hiện.
+  }
+}
+
 /** Ghi nhớ là người dùng đã từ chối, để lần sau không hỏi lại. */
 export function markDeclined() {
   try {
@@ -57,10 +89,10 @@ export function markDeclined() {
   }
 }
 
-/** Xoá cache cũ sau khi đã đẩy lên server thành công. */
+/** Xoá bản sao lưu sau khi đã đẩy lên server thành công. */
 export function clearLocalSnapshot() {
   try {
-    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(BACKUP_KEY)
   } catch {
     // Bỏ qua: dữ liệu đã nằm an toàn trên server rồi.
   }

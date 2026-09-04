@@ -53,6 +53,28 @@ export async function ensureTestUser(email: string): Promise<string> {
 }
 
 /**
+ * Dọn sạch dữ liệu của một tài khoản, chỉ để lại 8 danh mục mặc định.
+ * Dùng cho test di trú: hộp thoại mời chuyển chỉ hiện khi server chưa có giao
+ * dịch nào.
+ */
+export async function emptyUser(userId: string) {
+  await admin.from('transactions').delete().eq('user_id', userId)
+  await admin.from('budgets').delete().eq('user_id', userId)
+  await admin.from('categories').delete().eq('user_id', userId)
+
+  const { error } = await admin.from('categories').insert(
+    DEFAULT_CATEGORIES.map((c, index) => ({
+      user_id: userId,
+      id: c.id,
+      label: c.label,
+      color: c.color,
+      sort_order: index,
+    })),
+  )
+  if (error) throw error
+}
+
+/**
  * Đưa tài khoản về đúng dữ liệu mẫu. Xoá theo thứ tự ngược khoá ngoại:
  * transactions và budgets trỏ tới categories nên phải đi trước.
  */

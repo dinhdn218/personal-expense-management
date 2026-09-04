@@ -82,6 +82,12 @@ Mỗi hook ở đây lấy lát dữ liệu thô (tham chiếu ổn định) r�
 UTC+7 mọi khoản ghi trước 07:00 sáng sẽ bị đẩy sang tháng trước — sai cả tổng
 tháng lẫn ngân sách.
 
+**Sao lưu dữ liệu cũ trước khi nạp từ server.** `zustand/persist` ghi đè
+`vi-rieng/expenses` ngay khi `loadFromServer` trả về — với tài khoản mới (server
+rỗng) thì dữ liệu cũ của người dùng bị xoá trắng trong chưa tới một giây. Nên
+`store-bootstrap` chép sang `vi-rieng/pre-supabase-backup` **trước mọi thứ
+khác**; nhờ vậy bấm "Bỏ qua" mới thật sự giữ lại được, đúng như hộp thoại hứa.
+
 **Hydrate từ effect phía client** (`skipHydration: true` +
 `components/store-bootstrap.tsx`). Nếu để persist đọc `localStorage` ngay khi
 module nạp thì lần render client đầu tiên đã khác server render → React báo
