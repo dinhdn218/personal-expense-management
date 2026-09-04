@@ -120,6 +120,14 @@ và nhãn chữ — để người mù màu vẫn đọc được, không chỉ 
   bật: dùng chung một tài khoản thì các spec giẫm chân nhau. `resetStore(page)`
   giữ nguyên tên cũ nhưng giờ xoá và seed lại dữ liệu trong Postgres.
 
+  `e2e/auth.setup.ts` tạo sẵn session cho **tất cả** worker chứ không chỉ worker
+  0, vì project `setup` chỉ chạy ở một worker trong khi mỗi worker lại đọc file
+  session theo chỉ số của chính nó. Do đó số worker bị chốt cứng trong
+  `playwright.config.ts` (đổi qua `E2E_WORKERS`) — hai chỗ phải khớp nhau.
+
+  Id giao dịch mẫu có kèm chỉ số worker: `transactions.id` là khoá chính của cả
+  bảng chứ không theo từng user, nên dùng chung uuid cho mọi worker sẽ đụng khoá.
+
   Trỏ vào một project Supabase **riêng cho test**, không bao giờ trỏ vào
   project thật — seeder xoá sạch dữ liệu của tài khoản test trước mỗi lần chạy.
 

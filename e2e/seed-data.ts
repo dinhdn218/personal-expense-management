@@ -8,21 +8,31 @@ export { DEFAULT_CATEGORIES, SEED, SEED_BUDGETS }
  *
  * Trước đây id là chuỗi 'tx_3' nằm sẵn trong store. Giờ Postgres cấp uuid, nên
  * seeder ghi thẳng uuid cố định để `data-testid` trong spec vẫn xác định được.
- * Ba id này là ba giao dịch spec đang dùng.
+ *
+ * ⚠️ Phải kèm chỉ số worker: transactions.id là khoá chính của CẢ BẢNG, không
+ * phải khoá theo từng user. Dùng chung một uuid cho mọi worker thì worker thứ
+ * hai seed sẽ đụng khoá (23505) — dù mỗi worker một tài khoản riêng.
  */
-export const SEED_IDS = {
-  cafeHighlands: '00000000-0000-4000-8000-000000000003', // tx_3
-  grabVeNha: '00000000-0000-4000-8000-000000000004', // tx_4
-  netflix: '00000000-0000-4000-8000-000000000006', // tx_6
-} as const
+const workerIndex = () => process.env.TEST_PARALLEL_INDEX ?? '0'
 
-/** Ánh xạ id cũ -> uuid cố định; giao dịch khác lấy uuid sinh theo thứ tự. */
-const FIXED: Record<string, string> = {
-  tx_3: SEED_IDS.cafeHighlands,
-  tx_4: SEED_IDS.grabVeNha,
-  tx_6: SEED_IDS.netflix,
+/** uuid dạng 0000000W-0000-4000-8000-00000000000N (W = worker, N = số thứ tự). */
+const seedUuid = (n: number, worker = workerIndex()) =>
+  `${String(worker).padStart(8, '0')}-0000-4000-8000-${String(n).padStart(12, '0')}`
+
+export const SEED_IDS = {
+  get cafeHighlands() {
+    return seedUuid(3) // tx_3
+  },
+  get grabVeNha() {
+    return seedUuid(4) // tx_4
+  },
+  get netflix() {
+    return seedUuid(6) // tx_6
+  },
 }
 
-export const serverIdFor = (localId: string, index: number) =>
-  FIXED[localId] ??
-  `00000000-0000-4000-8000-${String(100 + index).padStart(12, '0')}`
+/** Ánh xạ id cũ -> uuid cố định; giao dịch khác lấy uuid sinh theo thứ tự. */
+const FIXED: Record<string, number> = { tx_3: 3, tx_4: 4, tx_6: 6 }
+
+export const serverIdFor = (localId: string, index: number, worker?: string) =>
+  seedUuid(FIXED[localId] ?? 100 + index, worker ?? workerIndex())

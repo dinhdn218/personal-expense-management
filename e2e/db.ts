@@ -56,7 +56,7 @@ export async function ensureTestUser(email: string): Promise<string> {
  * Đưa tài khoản về đúng dữ liệu mẫu. Xoá theo thứ tự ngược khoá ngoại:
  * transactions và budgets trỏ tới categories nên phải đi trước.
  */
-export async function seedUser(userId: string) {
+export async function seedUser(userId: string, worker?: string) {
   await admin.from('transactions').delete().eq('user_id', userId)
   await admin.from('budgets').delete().eq('user_id', userId)
   await admin.from('categories').delete().eq('user_id', userId)
@@ -74,7 +74,7 @@ export async function seedUser(userId: string) {
 
   const { error: txError } = await admin.from('transactions').insert(
     SEED.map((t, index) => ({
-      id: serverIdFor(t.id, index),
+      id: serverIdFor(t.id, index, worker),
       user_id: userId,
       type: t.type,
       amount_vnd: t.amountVnd,

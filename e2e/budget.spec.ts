@@ -73,9 +73,13 @@ test('gỡ hạn mức cần xác nhận, và gỡ xong thì về nhóm chưa đ
 })
 
 test('huỷ gỡ hạn mức thì hạn mức vẫn còn', async ({ page }) => {
-  const before = await page.getByRole('button', { name: 'Gỡ' }).count()
+  // Đợi dữ liệu về rồi mới đếm: count() không tự thử lại như expect(), mà giờ
+  // dữ liệu nạp từ server nên lúc mới vào trang danh sách còn rỗng.
+  const removeButtons = page.getByRole('button', { name: 'Gỡ' })
+  await expect(removeButtons.first()).toBeVisible()
+  const before = await removeButtons.count()
 
-  await page.getByRole('button', { name: 'Gỡ' }).first().click()
+  await removeButtons.first().click()
   await page.getByRole('button', { name: 'Huỷ' }).click()
 
   await expect(page.getByRole('button', { name: 'Gỡ' })).toHaveCount(before)

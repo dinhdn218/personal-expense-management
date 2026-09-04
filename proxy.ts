@@ -15,13 +15,7 @@ import type { NextRequest } from 'next/server'
  */
 
 /** Trang vào được khi chưa đăng nhập. */
-const PUBLIC_PATHS = [
-  '/dang-nhap',
-  '/auth/callback',
-  '/auth/auth-code-error',
-  // Chỉ tồn tại khi bật E2E_TEST_LOGIN; route tự trả 404 ở production.
-  '/auth/test-login',
-]
+const PUBLIC_PATHS = ['/dang-nhap', '/auth/callback', '/auth/auth-code-error']
 
 export async function proxy(request: NextRequest) {
   // Phải giữ nguyên object response này xuyên suốt: cookie mà Supabase ghi khi
